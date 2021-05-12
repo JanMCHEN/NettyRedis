@@ -180,6 +180,27 @@ public class RedisDB implements Serializable {
         return false;
     }
 
+    void removeNull(RedisObject key) {
+        RedisObject object = dict.get(key);
+        if(object==null) return;
+        if(object.isList() && ((RedisList)object.getPtr()).isEmpty()){
+            deleteKey(key);
+        }
+        else if(object.isSet() && ((RedisSet)object.getPtr()).isEmpty()) {
+            deleteKey(key);
+        }
+    }
+    private void removeNull(RedisObject key, RedisSet value){
+        if(value.isEmpty()){
+            deleteKey(key);
+        }
+    }
+    private void removeNull(RedisObject key, RedisList value){
+        if(value.isEmpty()){
+            deleteKey(key);
+        }
+    }
+
     /**
      * 没定义成static主要考虑到里边操作和当前数据库有关
      * Redis支持的操作全部在这里定义，主要参考Redis官方规范
@@ -276,14 +297,14 @@ public class RedisDB implements Serializable {
             return true;
         }
 
-        public long s_add(RedisObject key, boolean isInt, RedisObject ...values) {
+        public long sAdd(RedisObject key, boolean isInt, RedisObject ...values) {
             RedisObject obj = get(key);
             if(obj==null) {
                 // 创建新的IntSet对象
-                obj = RedisObject.createSet();
+                obj = RedisObject.newSet();
                 dict.put(key, obj);
             }
-            if(obj.getType()!=RedisObject.OBJ_SET) {
+            if(!obj.isSet()) {
                 return -1;
             }
             RedisSet ptr = (RedisSet) obj.getPtr();
@@ -294,12 +315,12 @@ public class RedisDB implements Serializable {
                     // 否则超出IntSet插入范围 st<0
                 }
                 ptr = ((IntSet)ptr).upToHash();
-                obj = RedisObject.createSet(ptr, RedisObject.REDIS_ENCODING_HT);
+                obj = RedisObject.newSet(ptr, false);
                 dict.put(key, obj);
             }
             return ptr.add(values);
         }
-        public long s_remove(RedisObject key, RedisObject ...values) {
+        public long sRemove(RedisObject key, RedisObject ...values) {
             RedisObject obj = get(key);
             if(obj==null) {
                 return 0;
@@ -307,28 +328,93 @@ public class RedisDB implements Serializable {
             if(obj.getType()!=RedisObject.OBJ_SET) {
                 return -1;
             }
-            int ans = 0;
-            return ((RedisSet) obj.getPtr()).remove(values);
+            long ans = ((RedisSet) obj.getPtr()).remove(values);
+            removeNull(key, (RedisSet) obj.getPtr());
+            return ans;
 
         }
-        public long s_contain(RedisObject key, RedisObject member) {
+        public long sContain(RedisObject key, RedisObject member) {
             RedisObject obj = get(key);
             if(obj == null) return 0;
             if(obj.getType()!=RedisObject.OBJ_SET) return -1;
             return ((RedisSet) obj.getPtr()).contains(member)?1:0;
         }
-        public Object s_members(RedisObject key) {
+        public Object sMembers(RedisObject key) {
             RedisObject obj = get(key);
             if(obj == null) return Collections.EMPTY_LIST;
             if(obj.getType()!=RedisObject.OBJ_SET) return null;
             return ((RedisSet) obj.getPtr()).members();
         }
-        public long s_card(RedisObject key) {
+        public long sCard(RedisObject key) {
             RedisObject obj = get(key);
             if(obj==null) return 0;
             if(obj.getType()!=RedisObject.OBJ_SET) return -1;
             return ((RedisSet)obj.getPtr()).size();
         }
+
+        public RedisObject lPop(RedisObject key) {
+            RedisObject obj = get(key);
+            if(obj==null) {
+                return null;
+            }
+            RedisObject ans;
+            if(obj.isList()){
+                RedisList ptr = (RedisList) obj.getPtr();
+                ans = ptr.popFirst();
+                removeNull(key, ptr);
+            }
+            else{
+                ans = RedisObject.ERROR;
+            }
+            return ans;
+        }
+        public RedisObject rPop(RedisObject key) {
+            RedisObject obj = get(key);
+            if(obj==null) {
+                return null;
+            }
+            RedisObject ans;
+            if(obj.isList()){
+                RedisList ptr = (RedisList) obj.getPtr();
+                ans = ptr.popLast();
+                removeNull(key, ptr);
+            }
+            else{
+                ans = RedisObject.ERROR;
+            }
+            return ans;
+        }
+        public long lPush(RedisObject key, RedisObject value){
+            RedisObject obj = get(key);
+            RedisList ptr;
+            if(obj == null) {
+                ptr = new RedisList();
+                obj = RedisObject.newList(ptr, false);
+                dict.put(key, obj);
+            }
+            else if(obj.isList()) {
+                ptr = (RedisList) obj.getPtr();
+            }
+            else return -1;
+            ptr.addFirst(value);
+            return ptr.size();
+        }
+        public long rPush(RedisObject key, RedisObject value){
+            RedisObject obj = get(key);
+            RedisList ptr;
+            if(obj == null) {
+                ptr = new RedisList();
+                obj = RedisObject.newList(ptr, false);
+                dict.put(key, obj);
+            }
+            else if(obj.isList()) {
+                ptr = (RedisList) obj.getPtr();
+            }
+            else return -1;
+            ptr.addLast(value);
+            return ptr.size();
+        }
+
     }
 
     public static void main(String[] args) throws IOException {

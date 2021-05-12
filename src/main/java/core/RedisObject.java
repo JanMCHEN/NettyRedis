@@ -14,15 +14,24 @@ public class RedisObject implements Serializable {
         return ans;
     }
 
-    public static RedisObject createSet() {
+    public static RedisObject newSet() {
         IntSet intSet = new IntSet();
-        return createSet(intSet, REDIS_ENCODING_INTSET);
+        return newSet(intSet, true);
     }
-
-    public static RedisObject createSet(Object obj, int encoding) {
+    public static RedisObject newSet(Object obj, boolean isInt) {
         RedisObject object = new RedisObject(obj);
         object.setType(OBJ_SET);
-        object.setEncoding(encoding);
+        object.setEncoding(isInt?REDIS_ENCODING_INTSET:REDIS_ENCODING_HT);
+        return object;
+    }
+
+    public static RedisObject newList() {
+        return newList(new RedisList.IntList(), true);
+    }
+    public static RedisObject newList(Object obj, boolean isInt) {
+        RedisObject object = new RedisObject(obj);
+        object.setType(OBJ_LIST);
+        object.setEncoding(isInt?REDIS_ENCODING_INTSET:REDIS_ENCODING_LIST);
         return object;
     }
 
@@ -31,19 +40,21 @@ public class RedisObject implements Serializable {
     public final static int OBJ_SET    = 2;
     public final static int OBJ_ZSET   = 3;
     public final static int OBJ_HASH   = 4;
+    private final static int OBJ_ERR   = 5;          // 指代类型错误
 
     public final static int OBJ_ENCODING_INT            =  0;       // Long
     public final static int OBJ_ENCODING_EMBSTR         =  1;       // String
     public final static int OBJ_ENCODING_RAW            =  2;       // StringBuilder
     public final static int REDIS_ENCODING_INTSET       =  3;       // IntSet
     public final static int REDIS_ENCODING_HT           =  4;       // HashMap
+    public final static int REDIS_ENCODING_LIST         =  5;
+
+    public static RedisObject ERROR = new RedisObject(OBJ_ERR, null);
 
     private int typeEncoding;     // type and encoding,实际只需用到8位就能存储，高4位存encoding，低4位存type
 //    private long lru;
 //    private int refCount;
     private final Object ptr;
-
-    public static RedisObject ERROR_TYPE = new RedisObject();
 
     public RedisObject() {
         this(null);
@@ -90,11 +101,20 @@ public class RedisObject implements Serializable {
     }
 
     public boolean isString() {
-        return (typeEncoding & 15) == OBJ_STRING;
+        return getType() == OBJ_STRING;
+    }
+    public boolean isSet() {
+        return getType() == OBJ_SET;
+    }
+    public boolean isList() {
+        return getType() == OBJ_LIST;
     }
 
     public boolean isEncodeInt() {
         return getEncoding() == OBJ_ENCODING_INT;
+    }
+    public boolean isEncodeIntSet() {
+        return getEncoding() == REDIS_ENCODING_INTSET;
     }
 
     public Object tryToLong(String v) {

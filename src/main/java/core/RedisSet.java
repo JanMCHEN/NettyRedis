@@ -1,7 +1,6 @@
 package core;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
@@ -10,11 +9,12 @@ public interface RedisSet {
     public long remove(RedisObject ...values);
     public List<RedisObject> members();
     public boolean contains(RedisObject value);
-    public long size();
+    public int size();
+    public boolean isEmpty();
 
     public static class Hash implements RedisSet {
 
-        private HashSet<RedisObject> contents;
+        private final HashSet<RedisObject> contents;
         public Hash() {
             contents = new HashSet<>();
         }
@@ -53,8 +53,13 @@ public interface RedisSet {
         }
 
         @Override
-        public long size() {
+        public int size() {
             return contents.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return contents.isEmpty();
         }
     }
 
