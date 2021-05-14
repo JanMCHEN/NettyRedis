@@ -5,8 +5,12 @@ import java.util.WeakHashMap;
 
 public class RedisObject implements Serializable {
     private final static WeakHashMap<String, RedisObject> CACHE = new WeakHashMap<>();
+    public final static RedisObject[] TYPES = {
+            RedisObject.valueOf("string"), RedisObject.valueOf("list"),RedisObject.valueOf("set"),
+            RedisObject.valueOf("zset"), RedisObject.valueOf("hash"),RedisObject.valueOf("none")
+    };
     public static RedisObject valueOf(String value) {
-        RedisObject ans = null;
+        RedisObject ans;
         if((ans= CACHE.get(value))==null) {
             ans = new RedisObject(value);
             CACHE.put(value, ans);

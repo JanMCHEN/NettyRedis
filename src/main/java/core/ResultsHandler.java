@@ -15,13 +15,11 @@ import java.util.List;
 public class ResultsHandler extends ChannelOutboundHandlerAdapter {
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        if(msg instanceof List) {
+        if(msg instanceof Object[]) {
             List<RedisMessage> res = new LinkedList<>();
-            List<Object> msgL = (List<Object>) msg;
-            for(var m:msgL) {
+            for(var m:(Object[])msg) {
                 write0(ctx, m, promise, res);
             }
-
             super.write(ctx, new ArrayRedisMessage(res), promise);
         }
         else if(msg instanceof RedisMessage) {
@@ -32,7 +30,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         }
     }
     public void write0(ChannelHandlerContext ctx, Object msg, ChannelPromise promise, List<RedisMessage> out) throws Exception {
-        RedisMessage res = null;
+        RedisMessage res;
         if(msg==null) {
             res = RedisMessagePool.NULL;
         }
@@ -54,10 +52,9 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         else if (msg instanceof Long) {
             res = new IntegerRedisMessage((Long) msg);
         }
-        else if (msg instanceof List) {
+        else if (msg instanceof Object[]) {
             List<RedisMessage> out_r = new LinkedList<>();
-            List<Object> msgL = (List<Object>) msg;
-            for(var m:msgL) {
+            for(var m:(Object[])msg) {
                 write0(ctx, m, promise, out_r);
             }
             res = new ArrayRedisMessage(out_r);

@@ -87,19 +87,19 @@ public class CommandHandler extends SimpleChannelInboundHandler {
             return null;
         }
         return () -> {
-            Object res;
+            Object res = null;
             try {
                 res = com.invoke(client, args);
                 if(res==null) {
                     res = RedisMessagePool.NULL;
                 }
-                else if(res.equals(-1L)) {
-                    res = RedisMessagePool.ERR_TYPE;
-                }
-                ctx.writeAndFlush(res);
-            } catch (Exception e) {
+            }catch (RedisException e) {
+                res = RedisMessagePool.ERR_TYPE;
+            }
+            catch (Exception e) {
                 System.out.println(e.getMessage());
             }
+            ctx.writeAndFlush(res);
         };
     }
 

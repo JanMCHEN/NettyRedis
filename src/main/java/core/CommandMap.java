@@ -10,6 +10,13 @@ public class CommandMap {
     public static CommandMap getInstance() {
         return instance;
     }
+    public static RedisObject[] stringsTo(String[] args) {
+        RedisObject[] ans = new RedisObject[args.length];
+        for(int i=0;i<ans.length;++i) {
+            ans[i] = RedisObject.valueOf(args[i]);
+        }
+        return ans;
+    }
 
     public AbstractCommand get(String s) {
         return commands.get(s);
@@ -18,13 +25,9 @@ public class CommandMap {
     private final HashMap<String, AbstractCommand> commands = new HashMap<>();
 
     public abstract class AbstractCommand {
-        private final boolean multiProcess;
-        private AbstractCommand() {this(false);}
-        private AbstractCommand(boolean multi) {
-            this.multiProcess = multi;
-        }
+        private AbstractCommand() {}
         public boolean isMultiProcess() {
-            return multiProcess;
+            return false;
         }
 
         /*
@@ -36,20 +39,186 @@ public class CommandMap {
         -4:
          */
         public abstract int checkArgs(String ...args);
-
         public abstract Object invoke(RedisClient client, String ...args);
 
     }
 
     private CommandMap() {
+        // multi
+        commands.put("watch", new AbstractCommand() {
+            @Override
+            public boolean isMultiProcess() {
+                return true;
+            }
+
+            @Override
+            public int checkArgs(String... args) {
+                return args.length>0?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                RedisObject[] keys = stringsTo(args);
+                return client.watch(keys);
+            }
+        });
+        commands.put("unwatch", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.unwatch();
+            }
+        });
+        commands.put("multi", new AbstractCommand() {
+            @Override
+            public boolean isMultiProcess() {
+                return true;
+            }
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.multi();
+            }
+        });
+        commands.put("exec", new AbstractCommand() {
+            @Override
+            public boolean isMultiProcess() {
+                return true;
+            }
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.exec();
+            }
+        });
+        commands.put("discard", new AbstractCommand() {
+            @Override
+            public boolean isMultiProcess() {
+                return true;
+            }
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.discard();
+            }
+        });
+
+        // keys
+        commands.put("expire", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                if(args.length!=2) return -1;
+                if(Utils.isNumber(args[1])) return 0;
+                return -3;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().expire(RedisObject.valueOf(args[0]), Long.parseLong(args[1]));
+            }
+        });
+        commands.put("expireat", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                if(args.length!=2) return -1;
+                if(Utils.isNumber(args[1])) return 0;
+                return -3;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().expireAt(RedisObject.valueOf(args[0]), Long.parseLong(args[1]));
+            }
+        });
+        commands.put("ttl", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().ttl(RedisObject.valueOf(args[0]));
+            }
+        });
+        commands.put("persist", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().persist(RedisObject.valueOf(args[0]));
+            }
+        });
+        commands.put("keys", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().keys(args[0]);
+            }
+        });
+        commands.put("exists", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length>=1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().exists(stringsTo(args));
+            }
+        });
+        commands.put("del", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length>=1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().del(stringsTo(args));
+            }
+        });
+        commands.put("type", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                int type = client.getRedisCommand().type(RedisObject.valueOf(args[0]));
+                return RedisObject.TYPES[type];
+            }
+        });
+
         // string
         commands.put("get", new AbstractCommand() {
             @Override
             public int checkArgs(String... args) {
-                if(args == null || args.length != 1) {
-                    return -1;
-                }
-                return 0;
+                return args.length == 1? 0:-1;
             }
 
             @Override
@@ -57,13 +226,13 @@ public class CommandMap {
                 RedisObject res = client.getRedisCommand().get(RedisObject.valueOf(args[0]));
                 if(res==null) return null;
                 if(res.isString()) return res;
-                return RedisMessagePool.ERR_TYPE;
+                throw RedisException.ERROR_TYPE;
             }
         });
         commands.put("set", new AbstractCommand() {
             @Override
             public int checkArgs(String... args) {
-                if(args == null || args.length < 2) {
+                if(args.length < 2) {
                     return -1;
                 }
                 switch (args.length) {
@@ -136,73 +305,6 @@ public class CommandMap {
             }
         });
 
-        // multi
-        commands.put("watch", new AbstractCommand(true) {
-            @Override
-            public int checkArgs(String... args) {
-                if(args==null || args.length==0) {
-                    return -1;
-                }
-                return 0;
-            }
-
-            @Override
-            public Object invoke(RedisClient client, String... args) {
-                RedisObject[] keys = new RedisObject[args.length];
-                for(int i=0;i<args.length;++i) {
-                    keys[i] = RedisObject.valueOf(args[i]);
-                }
-                return client.watch(keys);
-            }
-        });
-        commands.put("unwatch", new AbstractCommand() {
-            @Override
-            public int checkArgs(String... args) {
-                if(args==null || args.length==0) return 0;
-                return -1;
-            }
-
-            @Override
-            public Object invoke(RedisClient client, String... args) {
-                return client.unwatch();
-            }
-        });
-        commands.put("multi", new AbstractCommand(true) {
-            @Override
-            public int checkArgs(String... args) {
-                if(args==null || args.length==0) return 0;
-                return -1;
-            }
-
-            @Override
-            public Object invoke(RedisClient client, String... args) {
-                return client.multi();
-            }
-        });
-        commands.put("exec", new AbstractCommand(true) {
-            @Override
-            public int checkArgs(String... args) {
-                if(args==null || args.length==0) return 0;
-                return -1;
-            }
-
-            @Override
-            public Object invoke(RedisClient client, String... args) {
-                return client.exec();
-            }
-        });
-        commands.put("discard", new AbstractCommand(true) {
-            @Override
-            public int checkArgs(String... args) {
-                return args.length == 0?0:-1;
-            }
-
-            @Override
-            public Object invoke(RedisClient client, String... args) {
-                return client.discard();
-            }
-        });
-
         // set
         commands.put("sadd", new AbstractCommand() {
             @Override
@@ -269,9 +371,7 @@ public class CommandMap {
             @Override
             public Object invoke(RedisClient client, String... args) {
                 RedisObject key = RedisObject.valueOf(args[0]);
-                Object list = client.getRedisCommand().sMembers(key);
-                if(list==null) return RedisMessagePool.ERR_TYPE;
-                return list;
+                return client.getRedisCommand().sMembers(key);
             }
         });
         commands.put("scard", new AbstractCommand() {
@@ -300,6 +400,19 @@ public class CommandMap {
                 return client.getRedisCommand().lPush(key, value);
             }
         });
+        commands.put("lpushx", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==2?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                RedisObject key = RedisObject.valueOf(args[0]);
+                RedisObject value = RedisObject.valueOf(args[1]);
+                return client.getRedisCommand().lPushX(key, value);
+            }
+        });
         commands.put("rpush", new AbstractCommand() {
             @Override
             public int checkArgs(String... args) {
@@ -311,6 +424,18 @@ public class CommandMap {
                 RedisObject key = RedisObject.valueOf(args[0]);
                 RedisObject value = RedisObject.valueOf(args[1]);
                 return client.getRedisCommand().rPush(key, value);
+            }
+        });
+        commands.put("rpushx", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==2?0:-1;
+            }
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                RedisObject key = RedisObject.valueOf(args[0]);
+                RedisObject value = RedisObject.valueOf(args[1]);
+                return client.getRedisCommand().rPushX(key, value);
             }
         });
         commands.put("lpop", new AbstractCommand() {
@@ -335,6 +460,35 @@ public class CommandMap {
             public Object invoke(RedisClient client, String... args) {
                 RedisObject key = RedisObject.valueOf(args[0]);
                 return client.getRedisCommand().rPop(key);
+            }
+        });
+        commands.put("llen", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().lLen(RedisObject.valueOf(args[0]));
+            }
+        });
+        commands.put("lrange", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                if(args.length!=3) return -1;
+                if(Utils.isNumber(args[1]) && Utils.isNumber(args[2])){
+                    return 0;
+                }
+                return -3;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                RedisObject key = RedisObject.valueOf(args[0]);
+                long start = Long.parseLong(args[1]);
+                long stop = Long.parseLong(args[2]);
+                return client.getRedisCommand().lRange(key, start, stop);
             }
         });
 

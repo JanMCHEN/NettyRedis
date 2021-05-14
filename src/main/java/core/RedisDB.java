@@ -218,36 +218,40 @@ public class RedisDB implements Serializable {
             return true;
         }
 
-        public List<RedisObject> keys(String pattern) {
+        public Object[] keys(String pattern) {
             Set<RedisObject> keys = getKeys();
-            ArrayList<RedisObject> ans = new ArrayList<>();
+            List<RedisObject> ans = new LinkedList<>();
             for(var key:keys) {
                 if(checkKey(key) && Utils.match((String) key.getPtr(), pattern)) {
                     ans.add(key);
                 }
             }
+            return ans.toArray();
+        }
+        public int exists(RedisObject ...keys) {
+            int ans = 0;
+            for(var key:keys){
+                if(checkAndDelKey(key)) ans++;
+            }
             return ans;
         }
-        public boolean exists(RedisObject key) {
-            return checkAndDelKey(key);
-        }
-        public boolean expire(RedisObject key, long value) {
+        public int expire(RedisObject key, long value) {
             if(checkAndDelKey(key)) {
                 expires.put(key, value*1000+System.currentTimeMillis());
-                return true;
+                return 1;
             }
-            return false;
+            return 0;
         }
-        public boolean expireAt(RedisObject key, long time) {
+        public int expireAt(RedisObject key, long time) {
             if(checkAndDelKey(key)) {
                 if (time > System.currentTimeMillis()) {
                     expires.put(key, time);
                 }
-                return true;
+                return 1;
             }
-            return false;
+            return 0;
         }
-        public Long ttl(RedisObject key) {
+        public long ttl(RedisObject key) {
             if(!dict.containsKey(key)) return -2L;
             if(!expires.containsKey(key)) return -1L;
             long ans = expires.get(key) - System.currentTimeMillis();
@@ -257,7 +261,7 @@ public class RedisDB implements Serializable {
             if(checkAndDelKey(key)) {
                 return dict.get(key).getType();
             }
-            return -1;
+            return 5;
         }
         public int del(RedisObject ...keys) {
             int ans = 0;
@@ -297,123 +301,140 @@ public class RedisDB implements Serializable {
             return true;
         }
 
-        public long sAdd(RedisObject key, boolean isInt, RedisObject ...values) {
+        private RedisSet getSet(RedisObject key){
             RedisObject obj = get(key);
-            if(obj==null) {
+            if(obj==null) return null;
+            if(obj.isSet()) return (RedisSet) obj.getPtr();
+            throw RedisException.ERROR_TYPE;
+        }
+        public long sAdd(RedisObject key, boolean isInt, RedisObject ...values) {
+            RedisSet set = getSet(key);
+            if(set==null) {
                 // 创建新的IntSet对象
-                obj = RedisObject.newSet();
+                RedisObject obj = RedisObject.newSet();
                 dict.put(key, obj);
+                set = (RedisSet) obj.getPtr();
             }
-            if(!obj.isSet()) {
-                return -1;
-            }
-            RedisSet ptr = (RedisSet) obj.getPtr();
-            if(obj.getEncoding()==RedisObject.REDIS_ENCODING_INTSET) {
+            if(set instanceof IntSet) {
                 if(isInt) {
-                    long ans = ptr.add(values);
-                    if(ans>=0) return ans;
-                    // 否则超出IntSet插入范围 st<0
+                    // IntSet的插入
+                    long ans = set.add(values);
+                    if (ans >= 0) return ans;
                 }
-                ptr = ((IntSet)ptr).upToHash();
-                obj = RedisObject.newSet(ptr, false);
-                dict.put(key, obj);
+                // 插入失败，ans==-1,IntSet达到最大长度，或者待插入数据不是int，isInt==false
+                // 转为hash
+                set = ((IntSet) set).upToHash();
+                dict.put(key, RedisObject.newList(set, false));
             }
-            return ptr.add(values);
+            return set.add(values);
         }
         public long sRemove(RedisObject key, RedisObject ...values) {
-            RedisObject obj = get(key);
-            if(obj==null) {
+            RedisSet set = getSet(key);
+            if(set==null) {
                 return 0;
             }
-            if(obj.getType()!=RedisObject.OBJ_SET) {
-                return -1;
-            }
-            long ans = ((RedisSet) obj.getPtr()).remove(values);
-            removeNull(key, (RedisSet) obj.getPtr());
+            long ans = set.remove(values);
+            removeNull(key, set);
             return ans;
 
         }
         public long sContain(RedisObject key, RedisObject member) {
-            RedisObject obj = get(key);
-            if(obj == null) return 0;
-            if(obj.getType()!=RedisObject.OBJ_SET) return -1;
-            return ((RedisSet) obj.getPtr()).contains(member)?1:0;
+            RedisSet set = getSet(key);
+            if(set == null) return 0;
+            return set.contains(member)?1:0;
         }
-        public Object sMembers(RedisObject key) {
-            RedisObject obj = get(key);
-            if(obj == null) return Collections.EMPTY_LIST;
-            if(obj.getType()!=RedisObject.OBJ_SET) return null;
-            return ((RedisSet) obj.getPtr()).members();
+        public Object[] sMembers(RedisObject key) {
+            RedisSet set = getSet(key);
+            if(set == null) return new Object[0];
+            return set.members().toArray();
         }
         public long sCard(RedisObject key) {
-            RedisObject obj = get(key);
-            if(obj==null) return 0;
-            if(obj.getType()!=RedisObject.OBJ_SET) return -1;
-            return ((RedisSet)obj.getPtr()).size();
+            RedisSet set = getSet(key);
+            if(set==null) return 0;
+            return set.size();
         }
 
-        public RedisObject lPop(RedisObject key) {
+        private RedisList getList(RedisObject key) {
             RedisObject obj = get(key);
-            if(obj==null) {
+            if(obj==null) return null;
+            if(obj.isList()) return (RedisList)obj.getPtr();
+            throw RedisException.ERROR_TYPE;
+        }
+        public RedisObject lPop(RedisObject key) {
+            RedisList list = getList(key);
+            if(list==null) {
                 return null;
             }
-            RedisObject ans;
-            if(obj.isList()){
-                RedisList ptr = (RedisList) obj.getPtr();
-                ans = ptr.popFirst();
-                removeNull(key, ptr);
-            }
-            else{
-                ans = RedisObject.ERROR;
-            }
+            RedisObject ans = list.popFirst();
+            removeNull(key, list);
             return ans;
         }
         public RedisObject rPop(RedisObject key) {
-            RedisObject obj = get(key);
-            if(obj==null) {
+            RedisList list = getList(key);
+            if(list==null) {
                 return null;
             }
-            RedisObject ans;
-            if(obj.isList()){
-                RedisList ptr = (RedisList) obj.getPtr();
-                ans = ptr.popLast();
-                removeNull(key, ptr);
-            }
-            else{
-                ans = RedisObject.ERROR;
-            }
+            RedisObject ans = list.popLast();
+            removeNull(key, list);
             return ans;
         }
         public long lPush(RedisObject key, RedisObject value){
-            RedisObject obj = get(key);
-            RedisList ptr;
-            if(obj == null) {
-                ptr = new RedisList();
-                obj = RedisObject.newList(ptr, false);
-                dict.put(key, obj);
+            RedisList list = getList(key);
+            if(list==null) {
+                list = new RedisList();
+                dict.put(key, RedisObject.newList(list, false));
             }
-            else if(obj.isList()) {
-                ptr = (RedisList) obj.getPtr();
-            }
-            else return -1;
-            ptr.addFirst(value);
-            return ptr.size();
+            list.addFirst(value);
+            return list.size();
         }
         public long rPush(RedisObject key, RedisObject value){
-            RedisObject obj = get(key);
-            RedisList ptr;
-            if(obj == null) {
-                ptr = new RedisList();
-                obj = RedisObject.newList(ptr, false);
-                dict.put(key, obj);
+            RedisList list = getList(key);
+            if(list==null) {
+                list = new RedisList();
+                dict.put(key, RedisObject.newList(list, false));
             }
-            else if(obj.isList()) {
-                ptr = (RedisList) obj.getPtr();
-            }
-            else return -1;
-            ptr.addLast(value);
-            return ptr.size();
+            list.addLast(value);
+            return list.size();
         }
+        public long lPushX(RedisObject key, RedisObject value){
+            RedisList list = getList(key);
+            if(list==null) {
+                return 0;
+            }
+            list.addFirst(value);
+            return list.size();
+        }
+        public long rPushX(RedisObject key, RedisObject value){
+            RedisList list = getList(key);
+            if(list==null) {
+                return 0;
+            }
+            list.addLast(value);
+            return list.size();
+        }
+        public long lLen(RedisObject key){
+            RedisList list = getList(key);
+            if(list==null) {
+                return 0;
+            }
+            return list.size();
+        }
+        public RedisObject rPopLPush(RedisObject from, RedisObject to){
+            RedisObject ans = rPop(from);
+            if(ans==null){
+                return null;
+            }
+            lPush(to, ans);
+            return ans;
+        }
+        public Object[] lRange(RedisObject key, long start, long stop) {
+            RedisList list = getList(key);
+            if(list==null){
+                return new Object[0];
+            }
+            return list.getRange(start, stop);
+        }
+
 
     }
 
