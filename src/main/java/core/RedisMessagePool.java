@@ -15,7 +15,8 @@ public class RedisMessagePool {
     public static final RedisMessage ERR_MULTI = new ErrorRedisMessage("ERR MULTI calls can not be nested");
     public static final RedisMessage ERR_WATCH = new ErrorRedisMessage("ERR WATCH inside MULTI is not allowed");
     public static final RedisMessage ERR_DISCARD = new ErrorRedisMessage("ERR DISCARD without MULTI");
-
     public static final RedisMessage ERR_TYPE = new ErrorRedisMessage("WRONGTYPE Operation against a key holding the wrong kind of value");
+    public static final RedisMessage ERR_SEL = new ErrorRedisMessage("ERR invalid DB index");
 
+    public static final RedisMessage BG_SAVE = new SimpleStringRedisMessage("Background saving started");
 }

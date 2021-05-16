@@ -1,26 +1,15 @@
 package core;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class RedisList {
+public class RedisList implements Serializable {
     private final LinkedList<RedisObject> contents;
     private long length;
 
     public RedisList() {
         contents = new LinkedList<>();
         length = 0;
-    }
-
-    static class Node {
-        RedisObject e;
-        int index;
-        Node(RedisObject e, int index) {
-            this.e = e;
-            this.index = index;
-        }
-         static Node newNode(RedisObject e, int index) {
-            return new Node(e, index);
-         }
     }
 
     private long checkIndex(long index) {
@@ -143,7 +132,7 @@ public class RedisList {
     public Object[] getRange(long start, long stop) {
         start = checkIndex(start);
         stop = checkIndex(stop)+1;
-        if(start>= stop) {
+        if(start >= stop) {
             return new RedisObject[0];
         }
         List<RedisObject> res = new ArrayList<>();
@@ -160,13 +149,14 @@ public class RedisList {
                     continue;
                 }
                 for(int i=0;i<list.length;++i) {
-                    if(cur++>=stop) break;
+                    if(cur>=stop) break;
+                    if(cur++<start) continue;
                     res.add(new RedisObject(list.get(i)));
                 }
             }
             else {
-                res.add(ans);
-                cur++;
+                if(cur++ >= start)
+                    res.add(ans);
             }
         }
 

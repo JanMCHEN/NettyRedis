@@ -9,7 +9,19 @@ import io.netty.util.CharsetUtil;
 
 import java.util.List;
 
-public class CommandHandler extends SimpleChannelInboundHandler {
+public class CommandHandler extends SimpleChannelInboundHandler<Object> {
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(AttributeKey.valueOf("client")).set(new RedisClient(ctx));
+        super.channelActive(ctx);
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        Server.processGroup.submit(()->getClient(ctx).close());
+        super.channelInactive(ctx);
+    }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) {
@@ -58,7 +70,7 @@ public class CommandHandler extends SimpleChannelInboundHandler {
 
     public Runnable commandParse(ChannelHandlerContext ctx, ArrayRedisMessage msg) {
         List<RedisMessage> commands = msg.children();
-        RedisClient client = (RedisClient)ctx.channel().attr(AttributeKey.valueOf("client")).get();
+        RedisClient client = getClient(ctx);
         int n = commands.size();
         if(n==0) {
             return null;
@@ -94,17 +106,24 @@ public class CommandHandler extends SimpleChannelInboundHandler {
                     res = RedisMessagePool.NULL;
                 }
             }catch (RedisException e) {
-                res = RedisMessagePool.ERR_TYPE;
+                res = e.redisMessage;
             }
             catch (Exception e) {
                 System.out.println(e.getMessage());
             }
-            ctx.writeAndFlush(res);
+            if(res!=null) {
+                ctx.writeAndFlush(res);
+            }
         };
     }
 
+    public RedisClient getClient(ChannelHandlerContext ctx){
+        return (RedisClient)ctx.channel().attr(AttributeKey.valueOf("client")).get();
+    }
+
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        Server.processGroup.submit(()->getClient(ctx).close());
         ctx.close();
     }
 }

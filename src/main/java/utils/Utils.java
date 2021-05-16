@@ -2,6 +2,8 @@ package utils;
 
 import org.junit.Test;
 
+import java.util.concurrent.TimeUnit;
+
 public class Utils {
     private static boolean match0(String str, String pattern, int st, int pt) {
         for(;pt<pattern.length();++pt) {
@@ -52,9 +54,13 @@ public class Utils {
 
     public static boolean isNumber(String s) {
         for(int i=0;i<s.length();++i) {
+            if (i==0 && s.charAt(i)=='-') continue;
             if(s.charAt(i)<'0' || s.charAt(i) > '9') return false;
         }
         return true;
+    }
+    public static boolean isExpire(long timeout) {
+        return timeout < System.currentTimeMillis();
     }
 
     @Test

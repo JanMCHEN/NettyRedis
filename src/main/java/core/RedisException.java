@@ -1,19 +1,18 @@
 package core;
 
+import io.netty.handler.codec.redis.ErrorRedisMessage;
+import io.netty.handler.codec.redis.RedisMessage;
+
 public class RedisException extends RuntimeException {
-    public final static RedisException ERROR_TYPE = new RedisException();
+    public static RedisException ERROR_TYPE = new RedisException(RedisMessagePool.ERR_TYPE);
+
+    public RedisMessage redisMessage;
     public RedisException(){}
     public RedisException(String message) {
-        super(message);
+        redisMessage = new ErrorRedisMessage(message);
+    }
+    public RedisException(RedisMessage message) {
+        redisMessage = message;
     }
 
-    public static void main(String[] args) {
-        try {
-            throw ERROR_TYPE;
-        }catch (RedisException e){
-            e.printStackTrace();
-            throw ERROR_TYPE;
-        }
-
-    }
 }

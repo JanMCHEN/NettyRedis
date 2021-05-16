@@ -14,33 +14,24 @@ import java.util.concurrent.TimeUnit;
 
 public class Server {
 
+    static void serverCron() {
+        // 每个数据库检查过期键
+        RedisDB.removeFromExpire(20);
+        // TODO 每个数据库检查阻塞超时的键
+        RedisDB.checkBlockedTimeout();
+
+        if(RedisDB.isSaveNeed(60, 1)) {
+            backGroundGroup.schedule(RedisDB.saveTask, 0, TimeUnit.SECONDS);
+        }
+    }
+
     static NioEventLoopGroup bossGroup = new NioEventLoopGroup(1);
     static NioEventLoopGroup workerGroup = new NioEventLoopGroup(4);
 
     public static EventExecutorGroup processGroup = new DefaultEventExecutorGroup(1);
     public static EventExecutorGroup backGroundGroup = new DefaultEventExecutorGroup(2);
     static {
-        backGroundGroup.scheduleAtFixedRate(() -> {
-            try {
-                RedisDB.save(1);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }, 1, 60, TimeUnit.SECONDS);
-        backGroundGroup.scheduleAtFixedRate(() -> {
-            try {
-                RedisDB.save(10);
-            } catch (IOException ignored) {
-            }
-        }, 30, 300, TimeUnit.SECONDS);
-        backGroundGroup.scheduleAtFixedRate(() -> {
-            try {
-                RedisDB.save(1);
-            } catch (IOException ignored) {
-            }
-        }, 90, 900, TimeUnit.SECONDS);
-
-        processGroup.schedule(() -> RedisDB.removeFromExpire(20), 100, TimeUnit.SECONDS);
+        processGroup.scheduleAtFixedRate(Server::serverCron, 100, 100, TimeUnit.MILLISECONDS);
     }
 
     public static void main(String[] args) throws InterruptedException, IOException {

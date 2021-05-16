@@ -1,14 +1,13 @@
 package core;
 
-import io.netty.handler.codec.redis.RedisMessage;
+import io.netty.channel.ChannelHandlerContext;
 
 import java.util.*;
 
 public class RedisClient {
-
     private class Command {
         private final CommandMap.AbstractCommand method;
-        private String []args;
+        private final String []args;
 
         public Command(CommandMap.AbstractCommand method, String[] args) {
             this.method = method;
@@ -19,57 +18,71 @@ public class RedisClient {
             return method.invoke(RedisClient.this, args);
         }
     }
-    private byte state;
-    private List<Command> commands;
-    private HashSet<RedisObject> watchedKeys;
-    private RedisDB db;
 
-    public RedisClient() {
-        state = 0;
-        commands = new LinkedList<>();
-        watchedKeys = new HashSet<>();
+    // 0-0-0-0-0-0-0-0
+    //
+    private byte state = 0;
+    private List<Command> commands = new LinkedList<>();
+    private HashSet<RedisObject> watchedKeys = new HashSet<>();
+    private RedisDB db;
+    private ChannelHandlerContext ctx;
+
+    // blocked
+    long timeout;
+    List<RedisObject> blockedKeys = new LinkedList<>();
+    RedisObject target;
+
+
+    public RedisClient(ChannelHandlerContext ctx) {
+        this.ctx = ctx;
         db = RedisDB.getDB(0);
     }
-
     public RedisDB getDb() {
         return db;
     }
+    public void setDb(int i) {
+        if(i>=0 && i < RedisDB.dbs.length) {
+            db = RedisDB.getDB(i);
+        }
+        else {
+            throw new RedisException(RedisMessagePool.ERR_SEL);
+        }
+    }
+
     public RedisDB.RedisCommand getRedisCommand() {
         return db.getRedisCommand();
     }
 
     public boolean isMulti() {
-        return state == 1;
+        return (state & 1) == 1;
     }
     public boolean isDirty() {
-        return state >> 1 == 1;
+        return (state >> 1 & 1) == 1;
     }
     public boolean isError() {
-        return state >> 2 == 1;
+        return (state >> 2 & 1) == 1;
+    }
+    public boolean isBlocked(){
+        return (state >> 3 & 1) == 1;
     }
 
     public boolean isNormal() {
         return state == 0;
     }
 
-    public boolean setMulti() {
-        if(isMulti()) {
-            return false;
-        }
+    public void setMulti() {
         state = (byte) (state | 1);
-        return true;
     }
-    public boolean setDirty() {
+    public void setDirty() {
         state = (byte) (state | 2);
-        return true;
     }
-
-    public boolean setError() {
+    public void setError() {
         if(isMulti()) {
             state = (byte) (state | 4);
-            return true;
         }
-        return false;
+    }
+    public void setBlocked() {
+        state = (byte) (state | 8);
     }
 
     public void addCommand(CommandMap.AbstractCommand method,String[] args) {
@@ -97,6 +110,9 @@ public class RedisClient {
         if(isError()) {
             res = RedisMessagePool.ERR_EXEC_ERR;
         }
+        else if(isDirty()) {
+            res = RedisMessagePool.NULL;
+        }
         else if(isNormal()) {
             res = RedisMessagePool.ERR_EXEC_MUL;
         }
@@ -105,23 +121,27 @@ public class RedisClient {
             List<Object> resL = new LinkedList<>();
             while(iterator.hasNext()) {
                 Command next = iterator.next();
+                Object ans = null;
                 try {
-                    Object ans = next.call();
-                    resL.add(ans);
-                } catch (Exception e) {
+                    ans = next.call();
+                } catch (RedisException e){
+                    ans = e.redisMessage;
+                }catch (Exception e) {
                     e.printStackTrace();
                 } finally {
                     iterator.remove();
                 }
+                resL.add(ans);
             }
-            res = resL;
+            res = resL.toArray();
         }
         reset();
         return res;
     }
     public Object multi(){
-        if(setMulti()) return RedisMessagePool.OK;
-        else return RedisMessagePool.ERR_MULTI;
+        if(isMulti()) return RedisMessagePool.ERR_MULTI;
+        setMulti();
+        return RedisMessagePool.OK;
     }
     public Object discard() {
         if(!isMulti()) return RedisMessagePool.ERR_DISCARD;
@@ -129,7 +149,7 @@ public class RedisClient {
         return RedisMessagePool.OK;
     }
     public void reset() {
-        state = 0;
+        state &= 8;
         commands.clear();
         Iterator<RedisObject> iterator = watchedKeys.iterator();
         while(iterator.hasNext()) {
@@ -137,5 +157,59 @@ public class RedisClient {
             db.watch_remove(this, key);
             iterator.remove();
         }
+    }
+
+    public void blocked(long timeout, RedisObject target, RedisObject ...keys) {
+        if(keys.length==0) return;
+        unblocked();
+        setBlocked();
+        this.timeout = timeout==0? timeout: System.currentTimeMillis() + timeout;
+        this.target = target;
+        for(var key:keys) {
+            blockedKeys.add(key);
+            db.blockedAdd(this, key);
+        }
+    }
+    public void unblocked() {
+        unblocked(true);
+    }
+    public void unblocked(boolean checkDb) {
+        state &= 7;
+        timeout = -1;
+        target = null;
+        Iterator<RedisObject> iterator = blockedKeys.iterator();
+        if(!checkDb) {
+            blockedKeys.clear();
+            return;
+        }
+        while (iterator.hasNext()) {
+            db.blockedRemove(this, iterator.next());
+            iterator.remove();
+        }
+    }
+    public void blockedExec(RedisObject key) {
+        unblocked(false);
+        RedisObject val = db.getRedisCommand().lPop(key);
+        if(target!=null) {
+            try {
+                db.getRedisCommand().lPush(target, val);
+            }catch (RedisException e) {
+                writeAndFlush(e.redisMessage);
+                // push失败 target不是list类型，push回去
+                db.getRedisCommand().lPush(key, val);
+                return;
+            }
+        }
+        writeAndFlush(new Object[]{key, val});
+    }
+    public void writeAndFlush(Object msg) {
+        if (msg==null) {
+            msg = RedisMessagePool.NULL;
+        }
+        ctx.writeAndFlush(msg);
+    }
+    public void close() {
+        reset();
+        unblocked();
     }
 }

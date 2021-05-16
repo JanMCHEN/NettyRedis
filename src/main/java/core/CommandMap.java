@@ -1,5 +1,6 @@
 package core;
 
+import bin.Server;
 import utils.Utils;
 import java.util.HashMap;
 
@@ -11,9 +12,12 @@ public class CommandMap {
         return instance;
     }
     public static RedisObject[] stringsTo(String[] args) {
-        RedisObject[] ans = new RedisObject[args.length];
+        return stringsTo(args, 0, args.length);
+    }
+    public static RedisObject[] stringsTo(String[] args, int st, int length) {
+        RedisObject[] ans = new RedisObject[length];
         for(int i=0;i<ans.length;++i) {
-            ans[i] = RedisObject.valueOf(args[i]);
+            ans[i] = RedisObject.valueOf(args[i+st]);
         }
         return ans;
     }
@@ -24,7 +28,7 @@ public class CommandMap {
 
     private final HashMap<String, AbstractCommand> commands = new HashMap<>();
 
-    public abstract class AbstractCommand {
+    public abstract static class AbstractCommand {
         private AbstractCommand() {}
         public boolean isMultiProcess() {
             return false;
@@ -44,6 +48,74 @@ public class CommandMap {
     }
 
     private CommandMap() {
+        // db
+        commands.put("save", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0? 0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return RedisDB.saveTask;
+            }
+        });
+        commands.put("bgsave", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0? 0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                Server.backGroundGroup.submit(RedisDB.saveTask);
+                return RedisMessagePool.BG_SAVE;
+            }
+        });
+        commands.put("select", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length == 1?0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                try{
+                    int i = Integer.parseInt(args[0]);
+                    client.setDb(i);
+                } catch (NumberFormatException e){
+                    throw new RedisException(RedisMessagePool.ERR_SEL);
+                }
+                return RedisMessagePool.OK;
+            }
+        });
+        commands.put("flushdb", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0? 0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                client.getDb().flushDb();
+                System.gc();
+                return RedisMessagePool.OK;
+            }
+        });
+        commands.put("flushall", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==0? 0:-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                RedisDB.flushAll();
+                System.gc();
+                return RedisMessagePool.OK;
+            }
+        });
+
         // multi
         commands.put("watch", new AbstractCommand() {
             @Override
@@ -387,6 +459,7 @@ public class CommandMap {
             }
         });
 
+        // list
         commands.put("lpush", new AbstractCommand() {
             @Override
             public int checkArgs(String... args) {
@@ -395,9 +468,7 @@ public class CommandMap {
 
             @Override
             public Object invoke(RedisClient client, String... args) {
-                RedisObject key = RedisObject.valueOf(args[0]);
-                RedisObject value = RedisObject.valueOf(args[1]);
-                return client.getRedisCommand().lPush(key, value);
+                return client.getRedisCommand().lPush(RedisObject.valueOf(args[0]), stringsTo(args, 1, args.length-1));
             }
         });
         commands.put("lpushx", new AbstractCommand() {
@@ -421,9 +492,7 @@ public class CommandMap {
 
             @Override
             public Object invoke(RedisClient client, String... args) {
-                RedisObject key = RedisObject.valueOf(args[0]);
-                RedisObject value = RedisObject.valueOf(args[1]);
-                return client.getRedisCommand().rPush(key, value);
+                return client.getRedisCommand().rPush(RedisObject.valueOf(args[0]), stringsTo(args, 1, args.length-1));
             }
         });
         commands.put("rpushx", new AbstractCommand() {
@@ -491,214 +560,120 @@ public class CommandMap {
                 return client.getRedisCommand().lRange(key, start, stop);
             }
         });
+        commands.put("rpoplpush", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                return args.length==2?0:-1;
+            }
 
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                return client.getRedisCommand().rPopLPush(RedisObject.valueOf(args[0]), RedisObject.valueOf(args[1]));
+            }
+        });
+        commands.put("blpop", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                if(args.length < 2) return -1;
+                if(Utils.isNumber(args[args.length-1])) return 0;
+                return -3;
+            }
 
-        // list
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                long timeout;
+                try {
+                    timeout = Long.parseLong(args[args.length - 1]);
+                    if (timeout < 0) {
+                        throw new RedisException("ERR timeout is negative");
+                    }
+                }catch (NumberFormatException e){
+                    throw new RedisException("ERR timeout is not an integer or out of range");
+                }
+                RedisObject[] keys = stringsTo(args, 0, args.length-1);
+                Object ans = client.getRedisCommand().bLPop(keys);
+                if(ans==null){
+                    // multi过程不阻塞
+                    if(client.isMulti()){
+                        return null;
+                    }
+                    client.blocked(timeout*1000, null, keys);
+                    throw new RedisException();
+                }
+                else {
+                    return ans;
+                }
+            }
+        });
+        commands.put("brpop", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                if(args.length < 2) return -1;
+                if(Utils.isNumber(args[args.length-1])) return 0;
+                return -3;
+            }
 
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                long timeout;
+                try {
+                    timeout = Long.parseLong(args[args.length - 1]);
+                    if (timeout < 0) {
+                        throw new RedisException("ERR timeout is negative");
+                    }
+                }catch (NumberFormatException e){
+                    throw new RedisException("ERR timeout is not an integer or out of range");
+                }
+                RedisObject[] keys = stringsTo(args, 0, args.length-1);
+                Object ans = client.getRedisCommand().bRPop(keys);
+                if(ans==null){
+                    // multi过程不阻塞
+                    if(client.isMulti()){
+                        return null;
+                    }
+                    client.blocked(timeout*1000, null, keys);
+                    throw new RedisException();
+                }
+                else {
+                    return ans;
+                }
+            }
+        });
+        commands.put("brpoplpush", new AbstractCommand() {
+            @Override
+            public int checkArgs(String... args) {
+                if(args.length != 3) return -1;
+                if(Utils.isNumber(args[2])) return 0;
+                return -3;
+            }
 
-//        try {
-//            command.put("get", new AbComM("get", RedisObject.class) {
-//                @Override
-//                Object [] CommandArgParse(String... args) {
-//                    Object [] res = new Object[1];
-//                    res[0] = RedisObject.valueOf(args[0]);
-//                    return res;
-//                }
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args == null || args.length != 1) {
-//                        return -1;
-//                    }
-//                    return 0;
-//                }
-//            });
-//            command.put("set", new AbComM("set", RedisObject.class,
-//                    RedisObject.class, Long.class, boolean.class, boolean.class) {
-//                @Override
-//                Object [] CommandArgParse(String... args) {
-//                    Object [] res = new Object[5];
-//                    res[0] = RedisObject.valueOf(args[0]);
-//                    res[1] = RedisObject.valueOf(args[1]);
-//                    res[2] = null;
-//                    res[3] = false;
-//                    res[4] = false;
-//
-//                    if(args.length==2) return res;
-//                    switch (args[2]) {
-//                        case "ex":
-//                            res[2] = Long.parseLong(args[3])*1000;
-//                            break;
-//                        case "px":
-//                            res[2] = Long.parseLong(args[3]);
-//                            break;
-//                        case "nx":
-//                            res[3] = true;
-//                            break;
-//                        case "xx":
-//                            res[4] = true;
-//                            break;
-//                        default:
-//                            break;
-//                    }
-//
-//                    if(args.length==5) {
-//                        if(args[3].equals("ex")) {
-//                            res[2] = Long.parseLong(args[4])*1000;
-//                        }
-//                        else if (args[3].equals("px")) {
-//                            res[2] = Long.parseLong(args[4]);
-//                        }
-//                        else if (args[4].equals("xx")) res[4] = true;
-//                        else res[3] = true;
-//                    }
-//                    return res;
-//                }
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args == null || args.length < 2) {
-//                        return -1;
-//                    }
-//                    switch (args.length) {
-//                        case 2:
-//                            return 0;
-//                        case 3:
-//                            if("nx".equals(args[2]) || "xx".equals(args[2])) {
-//                                return 0;
-//                            }
-//                            return -2;
-//                        case 4:
-//                        case 5:
-//                            int i = 2;
-//                            if("nx".equals(args[2]) || "xx".equals(args[2]))  i = 3;
-//                            else if(args.length==5) {
-//                                if(!("nx".equals(args[4]) || "xx".equals(args[4]))) return -2;
-//                            }
-//
-//                            if(i+1==args.length) return -1;
-//
-//                            if("ex".equals(args[i]) || "px".equals(args[i])){
-//                                if(Utils.isNumber(args[i+1])) {
-//                                    return 0;
-//                                }
-//                                return -3;
-//                            }
-//                        default:
-//                            return -1;
-//                    }
-//                }
-//
-//                @Override
-//                public Object checkRes(Object res) {
-//                    if(res==Boolean.FALSE) {
-//                        return RedisMessagePool.NULL;
-//                    }
-//                    return res;
-//                }
-//            });
-//            command.put("expire", new AbComM("expire", RedisObject.class, long.class) {
-//                @Override
-//                Object[] CommandArgParse(String... args) {
-//                    Object[] res = new Object[2];
-//                    res[0] = RedisObject.valueOf(args[0]);
-//                    res[1] = Long.parseLong(args[1]);
-//                    return res;
-//                }
-//
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args==null || args.length!=2) return -1;
-//                    if(Utils.isNumber(args[1])) return 0;
-//                    return -3;
-//                }
-//            });
-//
-//            command.put("keys", new AbComM("keys", String.class) {
-//                @Override
-//                Object[] CommandArgParse(String... args) {
-//                    return args;
-//                }
-//
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args == null || args.length != 1) {
-//                        return -1;
-//                    }
-//                    return 0;
-//                }
-//            });
-//
-//            command.put("watch", new AbComM(true,"watch", ClientStatus.class, RedisObject[].class) {
-//                @Override
-//                Object[] CommandArgParse(String... args) {
-//                    Object[] ans = new Object[args.length+1];
-//                    for(int i=0;i<args.length;++i) {
-//                        ans[i+1] = RedisObject.valueOf(args[i]);
-//                    }
-//                    return ans;
-//                }
-//
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args==null || args.length==0) {
-//                        return -1;
-//                    }
-//                    return 0;
-//                }
-//
-//                @Override
-//                public Object checkRes(Object res) {
-//                    if (res==Boolean.FALSE) {
-//                        return RedisMessagePool.ERR_WATCH;
-//                    }
-//                    return RedisMessagePool.OK;
-//                }
-//
-//            });
-//            command.put("unwatch", new AbComM(false,"unwatch") {
-//                @Override
-//                Object[] CommandArgParse(String... args) {
-//                    return new Object[0];
-//                }
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args==null || args.length==0) return 0;
-//                    return -1;
-//                }
-//                @Override
-//                public Object invoke(ClientStatus client, Object obj, String... args) throws InvocationTargetException, IllegalAccessException {
-//                    client.reset();
-//                    return super.invoke(client, obj, args);
-//                }
-//            });
-//            command.put("exec", new AbComM(true, "exec", ClientStatus.class) {
-//                @Override
-//                Object[] CommandArgParse(String... args) {
-//                    return new Object[0];
-//                }
-//
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args==null || args.length==0) return 0;
-//                    return -1;
-//                }
-//            });
-//            command.put("multi", new AbComM(true, "exec", ClientStatus.class) {
-//                @Override
-//                Object[] CommandArgParse(String... args) {
-//                    return new Object[0];
-//                }
-//
-//                @Override
-//                public int checkArgs(String... args) {
-//                    if(args==null || args.length==0) return 0;
-//                    return -1;
-//                }
-//            });
-//
-//        } catch (NoSuchMethodException e) {
-//            System.out.println("command fail:"+e.getMessage());
-//        }
-
+            @Override
+            public Object invoke(RedisClient client, String... args) {
+                long timeout;
+                try {
+                    timeout = Long.parseLong(args[2]);
+                    if (timeout < 0) {
+                        throw new RedisException("ERR timeout is negative");
+                    }
+                }catch (NumberFormatException e){
+                    throw new RedisException("ERR timeout is not an integer or out of range");
+                }
+                RedisObject source = RedisObject.valueOf(args[0]);
+                RedisObject target = RedisObject.valueOf(args[1]);
+                Object ans = client.getRedisCommand().bRPopLPush(source, target);
+                if(ans==null){
+                    // multi过程不阻塞
+                    if(client.isMulti()){
+                        return null;
+                    }
+                    client.blocked(timeout*1000, target, source);
+                    throw new RedisException();
+                }
+                else {
+                    return ans;
+                }
+            }
+        });
     }
 
     public static void main(String[] args){

@@ -1,7 +1,5 @@
 package core;
 
-import core.RedisMessagePool;
-import core.RedisObject;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
@@ -58,6 +56,10 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
                 write0(ctx, m, promise, out_r);
             }
             res = new ArrayRedisMessage(out_r);
+        }
+        else if(msg instanceof Runnable) {
+            ((Runnable) msg).run();
+            res = RedisMessagePool.OK;
         }
         else {
             res = RedisMessagePool.ERR;

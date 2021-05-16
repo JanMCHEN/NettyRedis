@@ -1,10 +1,11 @@
 package core;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-public interface RedisSet {
+public interface RedisSet extends Serializable {
     public long add(RedisObject ...values);
     public long remove(RedisObject ...values);
     public List<RedisObject> members();
