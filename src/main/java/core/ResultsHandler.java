@@ -5,7 +5,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.redis.*;
-import io.netty.util.CharsetUtil;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -35,8 +34,9 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         else if (msg instanceof RedisMessage) {
             res = (RedisMessage) msg;
         }
-        else if (msg instanceof RedisObject) {
-            res = new FullBulkStringRedisMessage(Unpooled.copiedBuffer(msg.toString(), CharsetUtil.UTF_8));
+        else if (msg instanceof RedisString) {
+            res = new FullBulkStringRedisMessage(Unpooled.copiedBuffer(((RedisString) msg).getBytes()));
+//            res = new FullBulkStringRedisMessage(Unpooled.copiedBuffer(msg.toString(), CharsetUtil.UTF_8));
         }
         else if (msg instanceof Boolean) {
             boolean rep = (Boolean) msg;

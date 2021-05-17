@@ -165,7 +165,7 @@ public class RedisDB implements Serializable {
     }
 
     void flushDb() {
-        // 情空数据库，同时关联被监视的键
+        // 清空数据库，同时关联被监视的键
         for(var key:dict.keySet()) {
             touchWatch(key);
         }
@@ -174,7 +174,7 @@ public class RedisDB implements Serializable {
 
     }
 
-    public void watch_add(RedisClient client, RedisObject key) {
+    public void watchAdd(RedisClient client, RedisObject key) {
         // 添加监视key,和客户端相关联
         // 这里没有验证key是否存在，官方就是这么实现的,可能是考虑到不存在的键被监视时可以监控它的添加
         // 没有去重措施，可以重复添加client，当然建议某个客户端不要重复watch某个键
@@ -183,7 +183,7 @@ public class RedisDB implements Serializable {
         }
         watchedKeys.get(key).add(client);
     }
-    public void watch_remove(RedisClient client, RedisObject key) {
+    public void watchRemove(RedisClient client, RedisObject key) {
         List<RedisClient> clients = watchedKeys.get(key);
         if(clients==null) return;
         clients.remove(client);
@@ -291,10 +291,10 @@ public class RedisDB implements Serializable {
     void removeNull(RedisObject key) {
         RedisObject object = dict.get(key);
         if(object==null) return;
-        if(object.isList() && ((RedisList)object.getPtr()).isEmpty()){
+        if(object instanceof RedisList && ((RedisList) object).isEmpty()){
             deleteKey(key);
         }
-        else if(object.isSet() && ((RedisSet)object.getPtr()).isEmpty()) {
+        else if(object instanceof RedisSet && ((RedisSet) object).isEmpty()) {
             deleteKey(key);
         }
     }
@@ -310,23 +310,17 @@ public class RedisDB implements Serializable {
     }
 
     /**
-     * 没定义成static主要考虑到里边操作和当前数据库有关
-     * Redis支持的操作全部在这里定义，主要参考Redis官方规范
+     * 数据库相关辅助命令
      */
     public class RedisCommand {
 
         private RedisCommand(){}
 
-        public boolean save() {
-            saveTask.run();
-            return true;
-        }
-
         public Object[] keys(String pattern) {
             Set<RedisObject> keys = getKeys();
             List<RedisObject> ans = new LinkedList<>();
             for(var key:keys) {
-                if(checkKey(key) && Utils.match((String) key.getPtr(), pattern)) {
+                if(checkKey(key) && Utils.match(key.toString(), pattern)) {
                     ans.add(key);
                 }
             }
@@ -339,22 +333,21 @@ public class RedisDB implements Serializable {
             }
             return ans;
         }
-        public int expire(RedisObject key, long value) {
-            // TODO int类型返回数据未处理
+        public boolean expire(RedisObject key, long value) {
             if(checkAndDelKey(key)) {
                 expires.put(key, value*1000+System.currentTimeMillis());
-                return 1;
+                return true;
             }
-            return 0;
+            return false;
         }
-        public int expireAt(RedisObject key, long time) {
+        public boolean expireAt(RedisObject key, long time) {
             if(checkAndDelKey(key)) {
                 if (time > System.currentTimeMillis()) {
                     expires.put(key, time);
                 }
-                return 1;
+                return true;
             }
-            return 0;
+            return false;
         }
         public long ttl(RedisObject key) {
             if(!dict.containsKey(key)) return -2L;
@@ -363,12 +356,9 @@ public class RedisDB implements Serializable {
             return ans>0? ans/1000:-2L;
         }
         public int type(RedisObject key) {
-            if(checkAndDelKey(key)) {
-                return dict.get(key).getType();
-            }
-            return 5;
+            return RedisObject.getType(get(key));
         }
-        public int del(RedisObject ...keys) {
+        public long del(RedisObject ...keys) {
             int ans = 0;
             for(var key:keys) {
                 if(checkAndDelKey(key)) ans++;
@@ -386,6 +376,13 @@ public class RedisDB implements Serializable {
         public RedisObject get(RedisObject key) {
             checkAndDelKey(key);
             return dict.get(key);
+        }
+        public RedisString getString(RedisObject key) {
+            RedisObject obj = get(key);
+            if(obj ==null || obj instanceof RedisString){
+                return (RedisString) obj;
+            }
+            throw RedisException.ERROR_TYPE;
         }
         public boolean set(RedisObject key, RedisObject value, Long px, boolean nx, boolean xx) {
             if(nx || xx) {
@@ -405,20 +402,73 @@ public class RedisDB implements Serializable {
             }
             return true;
         }
+        public long strLen(RedisObject key) {
+            RedisString obj = getString(key);
+            if(obj==null) {
+                return 0;
+            }
+            return obj.size();
+        }
+        public long getBit(RedisObject key, long offset) {
+            RedisString string = getString(key);
+            if(string==null) return 0;
+            return string.getBit(offset);
+        }
+        public long setBit(RedisObject key, long offset, int bit) {
+            long ans = 0;
+            RedisString string = getString(key);
+            if(string==null) {
+                string = new RedisString.RawString(new byte[(int) (offset >> 3)+1]);
+                dict.put(key, string);
+            }
+            else if(!(string instanceof RedisString.RawString)) {
+                string = RedisString.toRaw(string);
+                dict.put(key, string);
+            }
+            ans = string.getBit(offset);
+            touchWatch(key);
+            string.setBit(offset, bit);
+            return ans;
+        }
+        public long bitCount(RedisObject key) {
+            RedisString string = getString(key);
+            if(string==null) return 0;
+            return string.bitCount();
+        }
+        public long increase(RedisObject key, long v) {
+            RedisString string = getString(key);
+            long before;
+            try{
+                before = string==null? 0:string.get();
+            }catch (NumberFormatException e){
+                throw RedisException.ERROR_INT;
+            }
+            if(v == 0) return before;
+            touchWatch(key);
+
+            if(!(string instanceof RedisString.IntString)) {
+                string = new RedisString.IntString(before+v);
+                dict.put(key, string);
+            }
+            else {
+                string.increase(v);
+            }
+            return before + v;
+        }
+
 
         private RedisSet getSet(RedisObject key){
             RedisObject obj = get(key);
             if(obj==null) return null;
-            if(obj.isSet()) return (RedisSet) obj.getPtr();
+            if(obj instanceof RedisSet) return (RedisSet) obj;
             throw RedisException.ERROR_TYPE;
         }
         public long sAdd(RedisObject key, boolean isInt, RedisObject ...values) {
             RedisSet set = getSet(key);
             if(set==null) {
                 // 创建新的IntSet对象
-                RedisObject obj = RedisObject.newSet();
-                dict.put(key, obj);
-                set = (RedisSet) obj.getPtr();
+                set = new IntSet();
+                dict.put(key, set);
             }
             if(set instanceof IntSet) {
                 if(isInt) {
@@ -429,7 +479,7 @@ public class RedisDB implements Serializable {
                 // 插入失败，ans==-1,IntSet达到最大长度，或者待插入数据不是int，isInt==false
                 // 转为hash
                 set = ((IntSet) set).upToHash();
-                dict.put(key, RedisObject.newList(set, false));
+                dict.put(key, set);
             }
             return set.add(values);
         }
@@ -462,7 +512,7 @@ public class RedisDB implements Serializable {
         private RedisList getList(RedisObject key) {
             RedisObject obj = get(key);
             if(obj==null) return null;
-            if(obj.isList()) return (RedisList)obj.getPtr();
+            if(obj instanceof RedisList) return (RedisList) obj;
             throw RedisException.ERROR_TYPE;
         }
         public RedisObject lPop(RedisObject key) {
@@ -489,7 +539,7 @@ public class RedisDB implements Serializable {
             RedisList list = getList(key);
             if(list==null) {
                 list = new RedisList();
-                dict.put(key, RedisObject.newList(list, false));
+                dict.put(key, list);
             }
             for(var value:values) {
                 list.addFirst(value);
@@ -502,7 +552,7 @@ public class RedisDB implements Serializable {
             RedisList list = getList(key);
             if(list==null) {
                 list = new RedisList();
-                dict.put(key, RedisObject.newList(list, false));
+                dict.put(key, list);
             }
             for(var value:values) {
                 list.addLast(value);
@@ -579,7 +629,7 @@ public class RedisDB implements Serializable {
                 return null;
             }
             lPush(to, (RedisObject) o[1]);
-            return (RedisObject) o[1];
+            return o[1];
         }
     }
 }

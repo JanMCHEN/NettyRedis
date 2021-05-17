@@ -19,4 +19,8 @@ public class RedisMessagePool {
     public static final RedisMessage ERR_SEL = new ErrorRedisMessage("ERR invalid DB index");
 
     public static final RedisMessage BG_SAVE = new SimpleStringRedisMessage("Background saving started");
+    public final static RedisMessage[] TYPES = {
+            new SimpleStringRedisMessage("string"), new SimpleStringRedisMessage("list"), new SimpleStringRedisMessage("set"),
+            new SimpleStringRedisMessage("zset"), new SimpleStringRedisMessage("hash"), new SimpleStringRedisMessage("none")
+    };
 }

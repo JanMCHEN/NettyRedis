@@ -1,19 +1,18 @@
 package core;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-public interface RedisSet extends Serializable {
-    public long add(RedisObject ...values);
-    public long remove(RedisObject ...values);
-    public List<RedisObject> members();
-    public boolean contains(RedisObject value);
-    public int size();
-    public boolean isEmpty();
+public interface RedisSet extends RedisObject {
+    long add(RedisObject ...values);
+    long remove(RedisObject ...values);
+    List<RedisObject> members();
+    boolean contains(RedisObject value);
+    int size();
+    boolean isEmpty();
 
-    public static class Hash implements RedisSet {
+    class Hash implements RedisSet {
 
         private final HashSet<RedisObject> contents;
         public Hash() {

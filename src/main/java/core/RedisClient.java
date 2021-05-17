@@ -7,9 +7,9 @@ import java.util.*;
 public class RedisClient {
     private class Command {
         private final CommandMap.AbstractCommand method;
-        private final String []args;
+        private final byte[][]args;
 
-        public Command(CommandMap.AbstractCommand method, String[] args) {
+        public Command(CommandMap.AbstractCommand method, byte[][] args) {
             this.method = method;
             this.args = args;
         }
@@ -19,13 +19,11 @@ public class RedisClient {
         }
     }
 
-    // 0-0-0-0-0-0-0-0
-    //
     private byte state = 0;
-    private List<Command> commands = new LinkedList<>();
-    private HashSet<RedisObject> watchedKeys = new HashSet<>();
+    private final List<Command> commands = new LinkedList<>();
+    private final HashSet<RedisObject> watchedKeys = new HashSet<>();
     private RedisDB db;
-    private ChannelHandlerContext ctx;
+    private final ChannelHandlerContext ctx;
 
     // blocked
     long timeout;
@@ -85,7 +83,7 @@ public class RedisClient {
         state = (byte) (state | 8);
     }
 
-    public void addCommand(CommandMap.AbstractCommand method,String[] args) {
+    public void addCommand(CommandMap.AbstractCommand method,byte[][] args) {
         if(isError()||isDirty())
             return;
         commands.add(new Command(method, args));
@@ -95,7 +93,7 @@ public class RedisClient {
         if(!isNormal()) return RedisMessagePool.ERR_WATCH;
         for(var key:keys) {
             watchedKeys.add(key);
-            db.watch_add(this, key);
+            db.watchAdd(this, key);
         }
         watchedKeys.addAll(Arrays.asList(keys));
         return RedisMessagePool.OK;
@@ -154,7 +152,7 @@ public class RedisClient {
         Iterator<RedisObject> iterator = watchedKeys.iterator();
         while(iterator.hasNext()) {
             RedisObject key = iterator.next();
-            db.watch_remove(this, key);
+            db.watchRemove(this, key);
             iterator.remove();
         }
     }

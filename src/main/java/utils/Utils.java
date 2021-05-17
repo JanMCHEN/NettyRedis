@@ -59,6 +59,13 @@ public class Utils {
         }
         return true;
     }
+    public static boolean isNumber(byte[] b) {
+        for(int i=0;i<b.length;++i) {
+            if (i==0 && b[i]=='-') continue;
+            if(b[i]<'0' || b[i] > '9') return false;
+        }
+        return true;
+    }
     public static boolean isExpire(long timeout) {
         return timeout < System.currentTimeMillis();
     }

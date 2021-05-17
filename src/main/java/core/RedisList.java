@@ -1,9 +1,8 @@
 package core;
 
-import java.io.Serializable;
 import java.util.*;
 
-public class RedisList implements Serializable {
+public class RedisList implements RedisObject {
     private final LinkedList<RedisObject> contents;
     private long length;
 
@@ -24,44 +23,48 @@ public class RedisList implements Serializable {
 
     public boolean addFirst(long value) {
         RedisObject first = contents.peekFirst();
-        if(first==null || !first.isEncodeIntSet()) {
-            first = RedisObject.newList();
+        if(!(first instanceof IntList)) {
+//            first = RedisObject.newList();
+            first = new IntList();
             contents.addFirst(first);
         }
-        IntList ptr = (IntList) first.getPtr();
+//        IntList ptr = (IntList) first;
         length ++;
-        if(ptr.add(0, value)) return true;
+        if(((IntList) first).add(0, value)) return true;
         // 插入失败，新建intList
-        first = RedisObject.newList();
+//        first = RedisObject.newList();
+        first = new IntList();
         contents.addFirst(first);
-        return ((IntList) first.getPtr()).add(0, value);
+        return ((IntList) first).add(0, value);
     }
     public boolean addFirst(RedisObject value) {
-        if(value.getEncoding()==RedisObject.OBJ_ENCODING_INT) {
-            return addFirst((Long)value.getPtr());
+        if(value instanceof RedisString.RedisInt) {
+//            return addFirst((Long)value.getPtr());
+            return addFirst(((RedisString.RedisInt) value).get());
         }
         contents.addFirst(value);
         length ++;
         return true;
     }
     public boolean addLast(long value) {
-        RedisObject last = contents.peekFirst();
-        if(last==null || !last.isEncodeIntSet()) {
-            last = RedisObject.newList();
+        RedisObject last = contents.peekLast();
+        if(!(last instanceof IntList)) {
+//            last = RedisObject.newList();
+            last = new IntList();
             contents.addLast(last);
         }
-        IntList ptr = (IntList) last.getPtr();
+//        IntList ptr = (IntList) last;
         length ++;
-        if(ptr.add(value)) return true;
+        if(((IntList) last).add(value)) return true;
         // 插入失败，新建intList
-        last = RedisObject.newList();
-        contents.addLast(last);
-        boolean ans = ((IntList) last.getPtr()).add(value);
-        return ans;
+//        last = RedisObject.newList();
+        last = new IntList();
+        contents.addFirst(last);
+        return ((IntList) last).add(value);
     }
     public boolean addLast(RedisObject value) {
-        if(value.getEncoding()==RedisObject.OBJ_ENCODING_INT) {
-            return addLast((Long)value.getPtr());
+        if(value instanceof RedisString.RedisInt) {
+            return addLast(((RedisString.RedisInt) value).get());
         }
         contents.addLast(value);
         length ++;
@@ -70,55 +73,56 @@ public class RedisList implements Serializable {
     public RedisObject popFirst() {
         length --;
          RedisObject first = contents.getFirst();
-         if(first==null || !first.isEncodeIntSet()){
+//         if(first==null || !first.isEncodeIntSet())
+         if(!(first instanceof RedisList.IntList)){
              contents.removeFirst();
              return first;
          }
-         IntList ptr = (IntList) first.getPtr();
-         long l = ptr.remove(0);
-         if(ptr.size()==0){
+//         IntList ptr = (IntList) first.getPtr();
+         long l = ((IntList) first).remove(0);
+         if(((IntList) first).size()==0){
              contents.removeFirst();
          }
-         return new RedisObject(l);
+         return new RedisString.RedisInt(l);
      }
      public RedisObject popLast() {
         length -- ;
          RedisObject last = contents.getLast();
-         if(last==null || !last.isEncodeIntSet()){
-             contents.removeLast();
+//         if(last==null || !last.isEncodeIntSet())
+         if(!(last instanceof RedisList.IntList)){
+             contents.removeFirst();
              return last;
          }
-         IntList ptr = (IntList) last.getPtr();
-         long l = ptr.remove();
-         if(ptr.size()==0){
-             contents.removeLast();
+//         IntList ptr = (IntList) last.getPtr();
+         long l = ((IntList) last).remove();
+         if(((IntList) last).size()==0){
+             contents.removeFirst();
          }
-         return new RedisObject(l);
+         return new RedisString.RedisInt(l);
      }
     public RedisObject get(long index) {
         index = checkIndex(index);
         RedisObject ans=null;
         if(index==0) {
             ans = contents.getFirst();
-            if(ans != null && ans.isEncodeIntSet()) {
-                ans = new RedisObject(((IntList)ans.getPtr()).get(0));
+            if(ans instanceof IntList) {
+                ans = new RedisString.RedisInt(((IntList)ans).get(0));
             }
         }
         else if(index==length-1) {
             ans = contents.getLast();
-            if(ans != null && ans.isEncodeIntSet()) {
-                ans = new RedisObject(((IntList)ans.getPtr()).get());
+            if(ans instanceof IntList) {
+                ans = new RedisString.RedisInt(((IntList)ans).get());
             }
         }
         else{
             for(RedisObject ele:contents) {
-                if(ele.isEncodeIntSet()){
-                    IntList ptr = (IntList) ele.getPtr();
-                    if(index < ptr.size()) {
-                        ans = new RedisObject(((IntList)ele.getPtr()).get((int) index));
+                if(ele instanceof RedisList.IntList){
+                    if(index < ((IntList) ele).size()) {
+                        ans = new RedisString.RedisInt(((IntList)ele).get((int) index));
                     }
                     else {
-                        index -= ptr.size();
+                        index -= ((IntList) ele).size();
                     }
                 }
                 else if(index--==0) {
@@ -142,16 +146,17 @@ public class RedisList implements Serializable {
         while (iterator.hasNext()) {
             if(cur>=stop) break;
             ans = iterator.next();
-            if(ans.isEncodeIntSet()) {
-                IntList list = (IntList) ans.getPtr();
-                if(list.length+cur<start){
+            if(ans instanceof IntList) {
+                IntList list = (IntList) ans;
+                if(((IntList) ans).length+cur<start){
                     cur += list.length;
                     continue;
                 }
                 for(int i=0;i<list.length;++i) {
                     if(cur>=stop) break;
                     if(cur++<start) continue;
-                    res.add(new RedisObject(list.get(i)));
+//                    res.add(new RedisObject(list.get(i)));
+                    res.add(new RedisString.RedisInt(list.get(i)));
                 }
             }
             else {
@@ -175,6 +180,5 @@ public class RedisList implements Serializable {
         public boolean add(long value) {
             return add(length, value);
         }
-
     }
 }

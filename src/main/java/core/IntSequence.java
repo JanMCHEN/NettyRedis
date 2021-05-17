@@ -3,7 +3,7 @@ package core;
 import java.io.Serializable;
 import java.util.Arrays;
 
-public abstract class IntSequence implements Serializable {
+public abstract class IntSequence implements RedisObject {
     protected static final int ENC_INT16 = 2;  // char
     protected static final int ENC_INT32 = 4;  // int
     protected static final int ENC_INT64 = 8;  // long

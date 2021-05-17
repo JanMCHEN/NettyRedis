@@ -1,6 +1,7 @@
 package core;
 
 import bin.Server;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.redis.*;
@@ -42,13 +43,21 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
 
     public String msgToString(RedisMessage msg) {
         if(msg instanceof FullBulkStringRedisMessage) {
-            FullBulkStringRedisMessage msg1 = (FullBulkStringRedisMessage) msg;
-            return msg1.content().toString(CharsetUtil.UTF_8);
+            return ((FullBulkStringRedisMessage)msg).content().toString(CharsetUtil.UTF_8);
+        }
+        return null;
+    }
+    public byte[] getBytes(RedisMessage msg) {
+        if(msg instanceof FullBulkStringRedisMessage) {
+            ByteBuf content = ((FullBulkStringRedisMessage) msg).content();
+            byte [] ans = new byte[content.readableBytes()];
+            content.readBytes(ans);
+            return ans;
         }
         return null;
     }
 
-    public boolean checkArgs(ChannelHandlerContext ctx, CommandMap.AbstractCommand com, String []args, String command) {
+    public boolean checkArgs(ChannelHandlerContext ctx, CommandMap.AbstractCommand com, byte[][]args, String command) {
         int stat = com.checkArgs(args);
         switch (stat) {
             case 0:
@@ -82,16 +91,16 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
             ctx.writeAndFlush(new ErrorRedisMessage("ERR unknown command '"+comStr+"'"));
             return null;
         }
-        String[] args = new String[n-1];
+        byte[][] args = new byte[n-1][];
 
         for(int i=1;i<n;++i) {
-            args[i-1] = msgToString(commands.get(i));
+            args[i-1] = getBytes(commands.get(i));
         }
 
         if(!checkArgs(ctx, com, args, comStr)) {
             client.setError();
             return null;
-        };
+        }
 
         if(client.isMulti() && !com.isMultiProcess()) {
             client.addCommand(com, args);
