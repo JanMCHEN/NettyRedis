@@ -462,6 +462,18 @@ public class CommandMap {
                 return client.getRedisCommand().increase(RedisObject.valueOf(args[0]), v);
             }
         });
+        commands.put("append", new AbstractCommand() {
+            @Override
+            public int checkArgs(byte[]... args) {
+                return args.length == 2 ? 0 :-1;
+            }
+
+            @Override
+            public Object invoke(RedisClient client, byte[]... args) {
+                return client.getRedisCommand().append(RedisObject.valueOf(args[0]), args[1]);
+            }
+        });
+
 
         // set
         commands.put("sadd", new AbstractCommand() {

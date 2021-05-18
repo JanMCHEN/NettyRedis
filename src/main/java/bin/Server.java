@@ -17,7 +17,7 @@ public class Server {
     static void serverCron() {
         // 每个数据库检查过期键
         RedisDB.removeFromExpire(20);
-        // TODO 每个数据库检查阻塞超时的键
+        // 每个数据库检查阻塞超时的键
         RedisDB.checkBlockedTimeout();
 
         if(RedisDB.isSaveNeed(60, 1)) {

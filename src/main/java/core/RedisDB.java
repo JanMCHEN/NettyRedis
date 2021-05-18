@@ -455,6 +455,19 @@ public class RedisDB implements Serializable {
             }
             return before + v;
         }
+        public long append(RedisObject key, byte[] values) {
+            RedisString string = getString(key);
+            if(string==null) {
+                string = new RedisString.RawString(values);
+                dict.put(key, string);
+                return values.length;
+            }
+            if(!(string instanceof RedisString.RawString)) {
+                string = new RedisString.RawString(string);
+                dict.put(key, string);
+            }
+            return ((RedisString.RawString)string).append(values);
+        }
 
 
         private RedisSet getSet(RedisObject key){

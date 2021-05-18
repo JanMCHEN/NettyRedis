@@ -302,7 +302,7 @@ public interface RedisString extends RedisObject {
             contents = RedisString.toArray(v);
             length = contents.length;
         }
-        public RawString(String s) {
+        public RawString(RedisString s) {
             contents = s.getBytes();
             length = contents.length;
         }
@@ -312,6 +312,15 @@ public interface RedisString extends RedisObject {
             return parseLong(contents, length);
         }
 
+        public long append(byte[] b) {
+            if(b.length==0) return length;
+            if(length+b.length>contents.length) {   // 扩容
+                resize(length+b.length);
+            }
+            System.arraycopy(b, 0, contents, length, b.length);
+            length += b.length;
+            return length;
+        }
 
         public void resize(int min) {
             int size = contents.length;
