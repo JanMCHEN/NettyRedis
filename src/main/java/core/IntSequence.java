@@ -13,9 +13,9 @@ public abstract class IntSequence implements RedisObject {
 
     protected static final int MAX_LENGTH = 512;
 
-    protected int encoding;
-    protected int length;
-    protected byte[] contents;
+    protected int encoding;     // 编码方式，char，int，long
+    protected int length;       // 实际存放数据的长度，=contents.length/encoding
+    protected byte[] contents;  // 数据容器
 
     public IntSequence() {
         this(ENC_INT16, 0);
@@ -43,6 +43,14 @@ public abstract class IntSequence implements RedisObject {
             return ENC_INT32;
         return ENC_INT16;
     }
+
+    /**
+     * 把byte数组当成encoding类型的数组，过去第i个位置的值，将内部实现抽象，可以当成char[],int[],long[]
+     * @param contents 待计算byte数组
+     * @param encoding 编码类型
+     * @param pos      获取pos位置上的值
+     * @return  long
+     */
     public static long get(byte[] contents, int encoding, int pos) {
         int start = pos * encoding;
         long ans = 0;
@@ -64,6 +72,14 @@ public abstract class IntSequence implements RedisObject {
         }
         return ans;
     }
+
+    /**
+     * 将给定的值赋给指定位置，不考虑value的范围是否超过encoding，应该在具体的实现中考虑
+     * @param contents 操作的bytes
+     * @param pos   位置
+     * @param encoding 编码方式
+     * @param value    值
+     */
     public static void set(byte[] contents, int pos, int encoding, long value) {
         int start = pos * encoding;
         for(int i=encoding-1;i>=0;--i) {
