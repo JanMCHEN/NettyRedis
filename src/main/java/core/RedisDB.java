@@ -644,5 +644,23 @@ public class RedisDB implements Serializable {
             lPush(to, (RedisObject) o[1]);
             return o[1];
         }
+
+        // zset
+        private SortedSet getZSet(RedisObject key){
+            RedisObject obj = get(key);
+            if(obj==null) return null;
+            if(obj instanceof SortedSet) return (SortedSet) obj;
+            throw RedisException.ERROR_TYPE;
+        }
+
+        public long zadd(RedisObject key, int score, RedisObject member) {
+            SortedSet zSet = getZSet(key);
+            if(zSet==null) {
+                zSet = new SortedSet();
+                dict.put(key, zSet);
+            }
+            zSet.add(member, score);
+            return zSet.size();
+        }
     }
 }

@@ -4,7 +4,7 @@ package core;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SortedSet {
+public class SortedSet implements RedisObject{
     private final Map<RedisObject, Integer> values;
 
     private final SkipList<RedisObject> scores;
