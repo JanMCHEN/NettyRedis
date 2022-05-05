@@ -32,6 +32,18 @@ public class Server {
     public static EventExecutorGroup backGroundGroup = new DefaultEventExecutorGroup(2);
     static {
         processGroup.scheduleAtFixedRate(Server::serverCron, 100, 100, TimeUnit.MILLISECONDS);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+
+            bossGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
+            processGroup.shutdownGracefully();
+            backGroundGroup.shutdownGracefully();
+            try {
+                RedisDB.saveLast();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }));
     }
 
     public static void main(String[] args) throws InterruptedException, IOException {
@@ -44,13 +56,10 @@ public class Server {
             bootstrap.childHandler(new HandlerInit());
 
             bootstrap.bind(7000).sync().channel().closeFuture().sync();
-        } finally {
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }finally {
             System.out.println("爱关不关");
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-            processGroup.shutdownGracefully();
-            backGroundGroup.shutdownGracefully();
-            RedisDB.saveLast();
         }
     }
 }

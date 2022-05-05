@@ -22,7 +22,7 @@ public interface RedisSet extends RedisObject {
         @Override
         public long add(RedisObject... values) {
             int ans = 0;
-            for (var value:values) {
+            for (RedisObject value:values) {
                 if(contents.add(value)) ans++;
             }
             return ans;
@@ -31,7 +31,7 @@ public interface RedisSet extends RedisObject {
         @Override
         public long remove(RedisObject... values) {
             int ans = 0;
-            for (var value:values) {
+            for (RedisObject value:values) {
                 if(contents.remove(value)) ans++;
             }
             return ans;

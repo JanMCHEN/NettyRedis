@@ -29,13 +29,13 @@ public class RedisDB implements Serializable {
         return dbs[i];
     }
     static void flushAll() {
-        for(var db:dbs) {
+        for(RedisDB db:dbs) {
             db.flushDb();
         }
     }
 
     public static void removeFromExpire(int count) {
-        for(var db:dbs) {
+        for(RedisDB db:dbs) {
             db.checkExpire(count);
         }
     }
@@ -47,7 +47,7 @@ public class RedisDB implements Serializable {
         FileOutputStream file = new FileOutputStream(fileName);
         try (file; ObjectOutputStream oos = new ObjectOutputStream(file)) {
             modCount = 0;
-            for (var db : dbs) {
+            for (RedisDB db : dbs) {
                 oos.writeObject(db);
             }
         }
@@ -166,7 +166,7 @@ public class RedisDB implements Serializable {
 
     void flushDb() {
         // 清空数据库，同时关联被监视的键
-        for(var key:dict.keySet()) {
+        for(RedisObject key:dict.keySet()) {
             touchWatch(key);
         }
         dict.clear();
@@ -196,7 +196,7 @@ public class RedisDB implements Serializable {
         modCount ++;
         List<RedisClient> redisClients = watchedKeys.get(key);
         if(redisClients ==null) return;
-        for(var client: redisClients) {
+        for(RedisClient client: redisClients) {
             client.setDirty();
         }
     }
@@ -216,7 +216,7 @@ public class RedisDB implements Serializable {
         }
     }
     public static void checkBlockedTimeout() {
-        for(var db:dbs) {
+        for(RedisDB db:dbs) {
             for (RedisObject redisObject : db.blockedKeys.keySet()) {
                 db.checkBlockedTimeout(redisObject);
             }
@@ -319,7 +319,7 @@ public class RedisDB implements Serializable {
         public Object[] keys(String pattern) {
             Set<RedisObject> keys = getKeys();
             List<RedisObject> ans = new LinkedList<>();
-            for(var key:keys) {
+            for(RedisObject key:keys) {
                 if(checkKey(key) && Utils.match(key.toString(), pattern)) {
                     ans.add(key);
                 }
@@ -328,7 +328,7 @@ public class RedisDB implements Serializable {
         }
         public long exists(RedisObject ...keys) {
             long ans = 0;
-            for(var key:keys){
+            for(RedisObject key:keys){
                 if(checkAndDelKey(key)) ans++;
             }
             return ans;
@@ -360,7 +360,7 @@ public class RedisDB implements Serializable {
         }
         public long del(RedisObject ...keys) {
             int ans = 0;
-            for(var key:keys) {
+            for(RedisObject key:keys) {
                 if(checkAndDelKey(key)) ans++;
             }
             return ans;
@@ -554,7 +554,7 @@ public class RedisDB implements Serializable {
                 list = new RedisList();
                 dict.put(key, list);
             }
-            for(var value:values) {
+            for(RedisObject value:values) {
                 list.addFirst(value);
                 touchBlocked(key);
             }
@@ -567,7 +567,7 @@ public class RedisDB implements Serializable {
                 list = new RedisList();
                 dict.put(key, list);
             }
-            for(var value:values) {
+            for(RedisObject value:values) {
                 list.addLast(value);
                 touchBlocked(key);
             }
@@ -618,7 +618,7 @@ public class RedisDB implements Serializable {
         }
         public Object[] bLPop(RedisObject ...keys) {
             RedisObject ans;
-            for(var key:keys) {
+            for(RedisObject key:keys) {
                 ans = lPop(key);
                 if(ans!=null){
                     return new Object[]{key, ans};
@@ -628,7 +628,7 @@ public class RedisDB implements Serializable {
         }
         public Object[] bRPop(RedisObject ...keys) {
             RedisObject ans;
-            for(var key:keys) {
+            for(RedisObject key:keys) {
                 ans = rPop(key);
                 if(ans!=null){
                     return new Object[]{key, ans};

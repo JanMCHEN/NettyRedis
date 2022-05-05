@@ -73,7 +73,7 @@ public class IntSet extends IntSequence implements RedisSet{
     @Override
     public long remove(RedisObject... values) {
         int ans = 0;
-        for(var value:values) {
+        for(RedisObject value:values) {
             if(delete(((RedisString)value).get())) ans++;
         }
         return ans;

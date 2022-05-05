@@ -91,7 +91,7 @@ public class RedisClient {
 
     public Object watch(RedisObject...keys) {
         if(!isNormal()) return RedisMessagePool.ERR_WATCH;
-        for(var key:keys) {
+        for(RedisObject key:keys) {
             watchedKeys.add(key);
             db.watchAdd(this, key);
         }
@@ -163,7 +163,7 @@ public class RedisClient {
         setBlocked();
         this.timeout = timeout==0? timeout: System.currentTimeMillis() + timeout;
         this.target = target;
-        for(var key:keys) {
+        for(RedisObject key:keys) {
             blockedKeys.add(key);
             db.blockedAdd(this, key);
         }

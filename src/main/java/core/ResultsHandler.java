@@ -14,7 +14,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if(msg instanceof Object[]) {
             List<RedisMessage> res = new LinkedList<>();
-            for(var m:(Object[])msg) {
+            for(Object m:(Object[])msg) {
                 write0(ctx, m, promise, res);
             }
             super.write(ctx, new ArrayRedisMessage(res), promise);
@@ -52,7 +52,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         }
         else if (msg instanceof Object[]) {
             List<RedisMessage> out_r = new LinkedList<>();
-            for(var m:(Object[])msg) {
+            for(Object m:(Object[])msg) {
                 write0(ctx, m, promise, out_r);
             }
             res = new ArrayRedisMessage(out_r);
