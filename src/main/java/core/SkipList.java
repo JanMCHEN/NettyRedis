@@ -253,7 +253,8 @@ public class SkipList <T> {
         }
         ans.append("level=").append(level).append(":[");
         int count = 0;
-        for(Node<T> node=head.node.next; node !=null;node=node.next) {
+        assert head != null;
+        for(Node<T> node = head.node.next; node !=null; node=node.next) {
             if(count++>10) {
                 continue;
             }
