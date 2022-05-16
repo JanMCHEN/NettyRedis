@@ -4,6 +4,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Random;
 
 interface A<K, V>{
 
@@ -89,7 +90,28 @@ public class RedisDictTest {
 //            System.out.println(j);
 
         }
+    }
+
+    @Test
+    public void testRandom() {
+        RedisDict<Integer, Integer> map = new RedisDict<>();
+        Random random = new Random();
+        int len = 5000;
+        for (int i=0;i<len;++i) {
+            map.put(i, i);
+        }
+
+        int ans=0, mean=0, notMatch=0;
+        for (int i=0;i<len;++i) {
+            Integer value = map.getRandom().getValue();
+
+//            System.out.println(value);
+            ans += value;
+            mean += random.nextInt(len);
+        }
 
 
+        System.out.println("not_match="+notMatch);
+        System.out.println("getRandom="+ans+" avg="+(len*(len-1)/2.)+" mean="+mean+ " det="+(ans-mean));
     }
 }

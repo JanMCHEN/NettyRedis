@@ -1,6 +1,7 @@
 package core;
 
 import java.util.*;
+import java.util.stream.IntStream;
 
 public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
 
@@ -8,6 +9,8 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
     static final float DEFAULT_LOAD_FACTOR = 1.f;    // rehash
     static final float FORCE_LOAD_FACTOR = 5.f;
     static final int MAXIMUM_CAPACITY = 1 << 30;
+
+    static final Random RANDOM = new Random();
 
     int threshold;
 
@@ -31,7 +34,7 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
         return new Node[cap];
     }
 
-    static class Node<K,V> implements Entry<K,V> {
+    public static class Node<K,V> implements Entry<K,V> {
         final K key;
         V value;
         Node<K, V> next;
@@ -303,12 +306,42 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
         return r;
     }
 
-
     @Override
     public void clear() {
         ht[0].clear();
         ht[1].clear();
         threshold = (int) (DEFAULT_INITIAL_CAPACITY * DEFAULT_LOAD_FACTOR);
+    }
+
+    public Node<K, V> getRandom() {
+        if (isEmpty()) return null;
+        int idx;
+        Node<K, V> he=null;
+        tryRehash(1);
+
+        if(isRehashing()) {
+            int len = ht[0].table.length + ht[1].table.length - rehashIdx;
+            while(he == null) {
+                idx = rehashIdx + RANDOM.nextInt(len);
+                he = idx >= ht[0].table.length ? ht[1].table[idx-ht[0].table.length]: ht[0].table[idx];
+            }
+        }
+        else {
+            while (he == null) {
+                idx = RANDOM.nextInt(ht[0].table.length);
+                he = ht[0].table[idx];
+            }
+        }
+        // find the bucket, then find the next;
+        // 水塘抽样
+        Node<K, V> ori = he;
+        he = he.next;
+        int len=2;
+        while (he != null) {
+            if (RANDOM.nextInt(len++)==0) ori = he;
+            he = he.next;
+        }
+        return ori;
     }
 
     @Override
