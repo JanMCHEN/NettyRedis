@@ -78,6 +78,16 @@ public class Solution {
         String start = "AACCGGTT", end = "AAACGGTA";
         String[] bank = {"AACCGGTA","AACCGCTA","AAACGGTA"};
 
-        System.out.println(minMutation(start, end, bank));
+        HashMap<String, String> map = new HashMap<>();
+        System.out.println(map.put(null, null));
+        System.out.println(map.put(null, "2"));
+        System.out.println(map.put("2", "3"));
+        System.out.println(map.size());
+
+        List<Integer>[] a = new List[1];
+        a[0] = new ArrayList<>();
+        a[0].add(1);
+
+//        System.out.println(minMutation(start, end, bank));
     }
 }
