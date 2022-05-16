@@ -20,12 +20,12 @@ public class ChatServer {
     }
 
     private void start() throws IOException {
+        int i= 0;
         while(true) {
+            System.out.println("select "+ ++i +"times");
             selector.select();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
-            int i = 0;
             while (iterator.hasNext()) {
-                System.out.println(++i);
                 SelectionKey key = iterator.next();
                 if (key.isAcceptable()) {
                     SocketChannel accept = socketChannel.accept();
@@ -39,7 +39,7 @@ public class ChatServer {
                     ByteBuffer buffer = (ByteBuffer) key.attachment();
                     try {
                         int read = channel.read(buffer);
-                        if (read==-1) throw new IOException("空轮询bug");
+                        if (read==-1) throw new IOException("不是空轮询bug, linux断开连接不会抛异常，并且有持续的可读事件    ");
                     } catch (IOException e) {
                         System.out.println(channel.getRemoteAddress().toString()+"断开连接");
                         System.out.println(e.getMessage());
