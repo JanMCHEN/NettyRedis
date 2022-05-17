@@ -51,7 +51,7 @@ public interface RedisString extends RedisObject {
         if(loc >= length){
             return 0;
         }
-        offset = offset - (loc << 3);
+        offset = offset - ((long) loc << 3);
         return ((b[loc] & 0xff) >> offset) & 1;
     }
     static long parseLong(byte[] contents, int length) {

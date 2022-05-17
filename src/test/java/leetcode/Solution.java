@@ -74,20 +74,47 @@ public class Solution {
         return ans.reverse().toString();
     }
 
+    static void combinations(int[] points, int r) {
+        int n = points.length;
+        int[] indices = new int[r];
+
+        for (int i=0;i<r;++i) {
+            indices[i] = i;
+        }
+        indices[r-1]--;
+
+        while (true) {
+            int at = r-1;
+            boolean found = false;
+            for (;at>=0;--at) {
+                if (r-at < n - indices[at]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) break;
+            indices[at]++;
+
+            for (int i=at+1;i<r;++i) {
+                indices[i] = indices[i-1] +1;
+            }
+
+            int[] comb = new int[r];
+            for (int i=0;i<r;++i) {
+                comb[i] = points[indices[i]];
+            }
+
+            System.out.println(Arrays.toString(comb));
+
+        }
+    }
+
     public static void main(String[] args) {
-        String start = "AACCGGTT", end = "AAACGGTA";
-        String[] bank = {"AACCGGTA","AACCGCTA","AAACGGTA"};
-
-        HashMap<String, String> map = new HashMap<>();
-        System.out.println(map.put(null, null));
-        System.out.println(map.put(null, "2"));
-        System.out.println(map.put("2", "3"));
-        System.out.println(map.size());
-
-        List<Integer>[] a = new List[1];
-        a[0] = new ArrayList<>();
-        a[0].add(1);
-
+//        String start = "AACCGGTT", end = "AAACGGTA";
+//        String[] bank = {"AACCGGTA","AACCGCTA","AAACGGTA"};
+//
 //        System.out.println(minMutation(start, end, bank));
+
+        combinations(new int[]{0,1,2,3,4}, 2);
     }
 }
