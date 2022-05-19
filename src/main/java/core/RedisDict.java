@@ -1,13 +1,13 @@
 package core;
 
 import java.util.*;
-import java.util.stream.IntStream;
 
 public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
 
     static final int DEFAULT_INITIAL_CAPACITY = 4;
     static final float DEFAULT_LOAD_FACTOR = 1.f;    // rehash
     static final float FORCE_LOAD_FACTOR = 5.f;
+    static final int MINIMUM_LOAD_TIMES = 10;
     static final int MAXIMUM_CAPACITY = 1 << 30;
 
     static final Random RANDOM = new Random();
@@ -189,9 +189,6 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
         }
     }
 
-
-
-
     Dict<K, V>[] ht = new Dict[2];
     int rehashIdx = -1;
 
@@ -201,14 +198,22 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
         threshold = (int) (DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
     }
 
+    void tryResize(boolean up) {
+        if (isRehashing()) return;
+        int len = ht[0].table.length;
+        if (up && ht[0].size >= threshold && len < MAXIMUM_CAPACITY) {
+            ht[1].table = (Node<K, V>[]) newTable(len << 1);
+            threshold = (int) (ht[1].table.length * DEFAULT_LOAD_FACTOR);
+            rehashIdx = 0;
+        } else if (!up && ht[0].size * MINIMUM_LOAD_TIMES <= len) {
+            ht[1].table = (Node<K, V>[]) newTable(len >> 1);
+            threshold = (int) (ht[1].table.length * DEFAULT_LOAD_FACTOR);
+            rehashIdx = 0;
+        }
+    }
+
     int tryRehash(int n) {
         if (!isRehashing()) {
-            // TODO 某些特殊情况不用rehash
-            if (ht[0].size >= threshold) {
-                ht[1].table = (Node<K, V>[]) newTable(ht[0].table.length << 1);
-                threshold = (int) (ht[1].table.length * DEFAULT_LOAD_FACTOR);
-                rehashIdx = 0;
-            }
             return 0;
         }
         int empty_visits = n*10; /* Max number of empty buckets to visit. */
@@ -256,6 +261,7 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
 
     @Override
     public boolean containsKey(Object o) {
+        tryRehash(1);
         return size() > 0 && (ht[0].containsKey(o) || (isRehashing() && ht[1].containsKey(o)));
     }
 
@@ -284,12 +290,13 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
                 old = ht[1].put(k, v);
             }
 
-            tryRehash(1);
         }
 
         else {
             old = ht[0].put(k, v);
         }
+
+        tryResize(true);
 
         tryRehash(1);
 
@@ -302,6 +309,7 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
         if (r==null && isRehashing()) {
             r = ht[1].remove(o);
         }
+        tryResize(false);
         tryRehash(1);
         return r;
     }

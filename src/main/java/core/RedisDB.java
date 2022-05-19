@@ -83,21 +83,21 @@ public class RedisDB implements Serializable {
             for (int i = 0; i < dbs.length; ++i) {
                 dbs[i] = (RedisDB) ois.readObject();
                 if(dbs[i] != null) {
-                    dbs[i].watchedKeys = new HashMap<>();
-                    dbs[i].blockedKeys = new HashMap<>();
+                    dbs[i].watchedKeys = new RedisDict<>();
+                    dbs[i].blockedKeys = new RedisDict<>();
                 }
             }
         } catch (EOFException ignored) {
         }
     }
 
-    private final HashMap<RedisObject, RedisObject> dict;
-    private final HashMap<RedisObject, Long> expires;
+    private final RedisDict<RedisObject, RedisObject> dict;
+    private final RedisDict<RedisObject, Long> expires;
 
     // 不参与序列化
-    private transient HashMap<RedisObject, List<RedisClient>> watchedKeys;
-    private transient HashMap<RedisObject, List<RedisClient>> blockedKeys;
-    private transient RedisCommand redisCommand = new RedisCommand();
+    private transient RedisDict<RedisObject, List<RedisClient>> watchedKeys;
+    private transient RedisDict<RedisObject, List<RedisClient>> blockedKeys;
+    private transient volatile RedisCommand redisCommand = new RedisCommand();
     // 自上次保存修改次数
     private static long modCount;
     // 当前expire检查的个数，保证能扫描到整个expire字典
@@ -137,31 +137,21 @@ public class RedisDB implements Serializable {
 
     public void checkExpire(int count) {
         // 检查过期的键，一次只检查少量几个，防止工作线程阻塞过久
-        // 我们假定rehash很少发生，近似每次迭代顺序都一样，不然仍然无法迭代完所有
-        // TODO 官方是检查随机的键，HashMap无法实现
-        Iterator<Map.Entry<RedisObject, Long>> iterator = expires.entrySet().iterator();
-        int i = 0;
-        while(iterator.hasNext() && count != 0 ) {
-            RedisObject key = iterator.next().getKey();
-            if(i<checkCount) {
-                i++;
-                continue;
-            }
-            if(!checkKey(key)) {
-                iterator.remove();
+        while (count > 0) {
+            RedisObject key = expires.getRandom().key;
+            if (!checkKey(key)) {
+                expires.remove(key);
                 deleteKey(key);
             }
-            else checkCount++;
             count--;
         }
-        if(!iterator.hasNext()) checkCount = 0;  // 检查完一遍
     }
 
     private RedisDB() {
-        dict = new HashMap<>();
-        expires = new HashMap<>();
-        watchedKeys = new HashMap<>();
-        blockedKeys = new HashMap<>();
+        dict = new RedisDict<>();
+        expires = new RedisDict<>();
+        watchedKeys = new RedisDict<>();
+        blockedKeys = new RedisDict<>();
     }
 
     void flushDb() {
@@ -256,7 +246,7 @@ public class RedisDB implements Serializable {
     }
 
 
-    public HashMap<RedisObject, RedisObject> getDict() {
+    public RedisDict<RedisObject, RedisObject> getDict() {
         return dict;
     }
 
