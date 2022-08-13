@@ -9,18 +9,7 @@ public class RedisDB implements Serializable {
 
     private static final long serialVersionUID = 3624988181265L;
 
-    public final static RedisDB [] dbs = new RedisDB[16];
-    static {
-        // 初始化
-        try {
-            init();
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("fail");
-            for(int i=0;i<dbs.length;++i) {
-                dbs[i] = new RedisDB();
-            }
-        }
-    }
+    public static RedisDB [] dbs;
 
     public static RedisDB getDB(int i) {
         if(i>=dbs.length||i<0) {
@@ -77,7 +66,8 @@ public class RedisDB implements Serializable {
         save();
     }
 
-    public static void init() throws IOException, ClassNotFoundException {
+    public static void init(int dbCnt) throws IOException, ClassNotFoundException {
+        dbs = new RedisDB[dbCnt];
         FileInputStream file = new FileInputStream("0.rdb");
         try (file; ObjectInputStream ois = new ObjectInputStream(file)) {
             for (int i = 0; i < dbs.length; ++i) {
