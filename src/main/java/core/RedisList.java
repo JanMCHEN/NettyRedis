@@ -39,7 +39,6 @@ public class RedisList implements RedisObject {
     }
     public boolean addFirst(RedisObject value) {
         if(value instanceof RedisString.RedisInt) {
-//            return addFirst((Long)value.getPtr());
             return addFirst(((RedisString.RedisInt) value).get());
         }
         contents.addFirst(value);

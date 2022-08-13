@@ -288,7 +288,6 @@ public interface RedisString extends RedisObject {
             return new String(contents);
         }
 
-
     }
     class RawString implements RedisString {
         static int M = 1024 * 1024;

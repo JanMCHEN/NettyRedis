@@ -58,14 +58,6 @@ public class Server {
             bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 
             bootstrap.childHandler(new HandlerInit());
-            IntBuffer buffer = IntBuffer.allocate(1);
-            buffer.put(9);
-            int[] a = new int[1];
-            Arrays.stream(a).toArray();
-            "a".split(" ");
-
-
-
             bootstrap.bind(7000).sync().channel().closeFuture().sync();
         } catch (Throwable e) {
             e.printStackTrace();

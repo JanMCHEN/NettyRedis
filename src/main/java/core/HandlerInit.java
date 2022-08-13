@@ -9,8 +9,6 @@ import io.netty.handler.codec.redis.RedisDecoder;
 import io.netty.handler.codec.redis.RedisEncoder;
 
 public class HandlerInit extends ChannelInitializer<SocketChannel> {
-
-
     @Override
     protected void initChannel(SocketChannel ch) {
         ChannelPipeline pipeline = ch.pipeline();
