@@ -1,10 +1,6 @@
 package utils;
 
-import org.junit.Test;
-
-import java.util.concurrent.TimeUnit;
-
-public class Utils {
+public class RedisKeysMatcher {
     private static boolean match0(String str, String pattern, int st, int pt) {
         for(;pt<pattern.length();++pt) {
             if(st == str.length()) return false;
@@ -52,26 +48,4 @@ public class Utils {
         return "*".equals(pattern) || match0(str, pattern, 0, 0);
     }
 
-    public static boolean isNumber(String s) {
-        for(int i=0;i<s.length();++i) {
-            if (i==0 && s.charAt(i)=='-') continue;
-            if(s.charAt(i)<'0' || s.charAt(i) > '9') return false;
-        }
-        return true;
-    }
-    public static boolean isNumber(byte[] b) {
-        for(int i=0;i<b.length;++i) {
-            if (i==0 && b[i]=='-') continue;
-            if(b[i]<'0' || b[i] > '9') return false;
-        }
-        return true;
-    }
-    public static boolean isExpire(long timeout) {
-        return timeout < System.currentTimeMillis();
-    }
-
-    @Test
-    public void test() {
-        System.out.println(match("abjjjjdhaaa", "a**[ajjklll]"));
-    }
 }

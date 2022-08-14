@@ -1,4 +1,3 @@
-import core.RedisException;
 import org.junit.Test;
 
 class MyException extends RuntimeException {

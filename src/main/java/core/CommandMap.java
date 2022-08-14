@@ -1,7 +1,10 @@
 package core;
 
 import bin.Server;
-import utils.Utils;
+import core.exception.RedisException;
+import core.structure.RedisObject;
+import core.structure.RedisString;
+import utils.CommonUtils;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -198,7 +201,7 @@ public class CommandMap {
             @Override
             public int checkArgs(byte[]... args) {
                 if(args.length!=2) return -1;
-                if(Utils.isNumber(args[1])) return 0;
+                if(CommonUtils.isNumber(args[1])) return 0;
                 return -3;
             }
 
@@ -211,7 +214,7 @@ public class CommandMap {
             @Override
             public int checkArgs(byte[]... args) {
                 if(args.length!=2) return -1;
-                if(Utils.isNumber(args[1])) return 0;
+                if(CommonUtils.isNumber(args[1])) return 0;
                 return -3;
             }
 
@@ -328,7 +331,7 @@ public class CommandMap {
                         if(i+1==args.length) return -1;
 
                         if(RedisString.equals(args[i], "ex") || RedisString.equals(args[i], "px")){
-                            if(Utils.isNumber(args[i+1])) {
+                            if(CommonUtils.isNumber(args[i+1])) {
                                 return 0;
                             }
                             return -3;
@@ -644,7 +647,7 @@ public class CommandMap {
             @Override
             public int checkArgs(byte[]... args) {
                 if(args.length!=3) return -1;
-                if(Utils.isNumber(args[1]) && Utils.isNumber(args[2])){
+                if(CommonUtils.isNumber(args[1]) && CommonUtils.isNumber(args[2])){
                     return 0;
                 }
                 return -3;
@@ -673,7 +676,7 @@ public class CommandMap {
             @Override
             public int checkArgs(byte[]... args) {
                 if(args.length < 2) return -1;
-                if(Utils.isNumber(args[args.length-1])) return 0;
+                if(CommonUtils.isNumber(args[args.length-1])) return 0;
                 return -3;
             }
 
@@ -707,7 +710,7 @@ public class CommandMap {
             @Override
             public int checkArgs(byte[]... args) {
                 if(args.length < 2) return -1;
-                if(Utils.isNumber(args[args.length-1])) return 0;
+                if(CommonUtils.isNumber(args[args.length-1])) return 0;
                 return -3;
             }
 
@@ -741,7 +744,7 @@ public class CommandMap {
             @Override
             public int checkArgs(byte[]... args) {
                 if(args.length != 3) return -1;
-                if(Utils.isNumber(args[2])) return 0;
+                if(CommonUtils.isNumber(args[2])) return 0;
                 return -3;
             }
 

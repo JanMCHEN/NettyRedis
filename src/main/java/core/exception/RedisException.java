@@ -1,5 +1,6 @@
-package core;
+package core.exception;
 
+import core.RedisMessagePool;
 import io.netty.handler.codec.redis.ErrorRedisMessage;
 import io.netty.handler.codec.redis.RedisMessage;
 

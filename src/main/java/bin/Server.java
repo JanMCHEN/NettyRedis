@@ -1,6 +1,6 @@
 package bin;
 
-import core.HandlerInit;
+import core.handler.HandlerInit;
 import core.RedisDB;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -10,10 +10,6 @@ import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import io.netty.util.concurrent.EventExecutorGroup;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Server {

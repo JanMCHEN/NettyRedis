@@ -1,4 +1,4 @@
-package core;
+package core.handler;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -9,6 +9,12 @@ import io.netty.handler.codec.redis.RedisDecoder;
 import io.netty.handler.codec.redis.RedisEncoder;
 
 public class HandlerInit extends ChannelInitializer<SocketChannel> {
+    private CommandHandler cmdHandler;
+
+    public void setCmdHandler(CommandHandler cmdHandler) {
+        this.cmdHandler = cmdHandler;
+    }
+
     @Override
     protected void initChannel(SocketChannel ch) {
         ChannelPipeline pipeline = ch.pipeline();
@@ -18,6 +24,6 @@ public class HandlerInit extends ChannelInitializer<SocketChannel> {
                 .addLast(new RedisArrayAggregator())
                 .addLast(new RedisEncoder())
                 .addLast(new ResultsHandler())
-                .addLast(new CommandHandler());
+                .addLast(cmdHandler);
     }
 }

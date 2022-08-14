@@ -1,4 +1,4 @@
-package core;
+package core.structure;
 
 import java.util.ArrayList;
 import java.util.HashSet;

@@ -1,6 +1,6 @@
 package core;
 
-public interface RedisCommand<T> {
+public interface RedisCommand {
     default boolean isMultiProcess() {
         return false;
     }
@@ -14,5 +14,5 @@ public interface RedisCommand<T> {
     -4:
      */
     int checkArgs(byte[] ...args);
-    T invoke(RedisClient client, byte[] ...args);
+    Object invoke(RedisClient client, byte[] ...args);
 }

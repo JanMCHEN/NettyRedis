@@ -1,15 +1,18 @@
 package core;
 
+import core.exception.RedisException;
+import core.structure.RedisObject;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.util.*;
 
 public class RedisClient {
-    private class Command {
-        private final CommandMap.AbstractCommand method;
+
+    private class CommandMetaData {
+        private final RedisCommand method;
         private final byte[][]args;
 
-        public Command(CommandMap.AbstractCommand method, byte[][] args) {
+        public CommandMetaData(RedisCommand method, byte[][] args) {
             this.method = method;
             this.args = args;
         }
@@ -20,7 +23,7 @@ public class RedisClient {
     }
 
     private byte state = 0;
-    private final List<Command> commands = new LinkedList<>();
+    private final List<CommandMetaData> commands = new LinkedList<>();
     private final HashSet<RedisObject> watchedKeys = new HashSet<>();
     private RedisDB db;
     private final ChannelHandlerContext ctx;
@@ -83,10 +86,10 @@ public class RedisClient {
         state = (byte) (state | 8);
     }
 
-    public void addCommand(CommandMap.AbstractCommand method,byte[][] args) {
+    public void addCommand(RedisCommand method ,byte[][] args) {
         if(isError()||isDirty())
             return;
-        commands.add(new Command(method, args));
+        commands.add(new CommandMetaData(method, args));
     }
 
     public Object watch(RedisObject...keys) {
@@ -115,10 +118,10 @@ public class RedisClient {
             res = RedisMessagePool.ERR_EXEC_MUL;
         }
         else if(isMulti()) {
-            Iterator<Command> iterator = commands.iterator();
+            Iterator<CommandMetaData> iterator = commands.iterator();
             List<Object> resL = new LinkedList<>();
             while(iterator.hasNext()) {
-                Command next = iterator.next();
+                CommandMetaData next = iterator.next();
                 Object ans = null;
                 try {
                     ans = next.call();

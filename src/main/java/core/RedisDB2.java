@@ -8,26 +8,27 @@ import utils.CommonUtils;
 import java.io.*;
 import java.util.*;
 
-public class RedisDB implements Serializable {
+@SuppressWarnings("all")
+public class RedisDB2 implements Serializable {
 
     private static final long serialVersionUID = 3624988181265L;
 
-    public static RedisDB [] dbs;
+    public static RedisDB2 [] dbs;
 
-    public static RedisDB getDB(int i) {
+    public static RedisDB2 getDB(int i) {
         if(i>=dbs.length||i<0) {
             i = 0;
         }
         return dbs[i];
     }
     static void flushAll() {
-        for(RedisDB db:dbs) {
+        for(RedisDB2 db:dbs) {
             db.flushDb();
         }
     }
 
     public static void removeFromExpire(int count) {
-        for(RedisDB db:dbs) {
+        for(RedisDB2 db:dbs) {
             db.checkExpire(count);
         }
     }
@@ -39,7 +40,7 @@ public class RedisDB implements Serializable {
         FileOutputStream file = new FileOutputStream(fileName);
         try (file; ObjectOutputStream oos = new ObjectOutputStream(file)) {
             modCount = 0;
-            for (RedisDB db : dbs) {
+            for (RedisDB2 db : dbs) {
                 oos.writeObject(db);
             }
         }
@@ -70,10 +71,10 @@ public class RedisDB implements Serializable {
     }
 
     public static void init(int dbCnt) throws IOException, ClassNotFoundException {
-        dbs = new RedisDB[dbCnt];
+        dbs = new RedisDB2[dbCnt];
         try (FileInputStream file = new FileInputStream("0.rdb"); ObjectInputStream ois = new ObjectInputStream(file)) {
             for (int i = 0; i < dbs.length; ++i) {
-                dbs[i] = (RedisDB) ois.readObject();
+                dbs[i] = (RedisDB2) ois.readObject();
                 if (dbs[i] != null) {
                     dbs[i].watchedKeys = new RedisDict<>();
                     dbs[i].blockedKeys = new RedisDict<>();
@@ -81,29 +82,29 @@ public class RedisDB implements Serializable {
             }
         } catch (FileNotFoundException e) {
             for (int i = 0; i < dbs.length; ++i) {
-                dbs[i] = new RedisDB();
+                dbs[i] = new RedisDB2();
             }
         }
 
     }
 
-    private final RedisDict<RedisObject, RedisObject> dict;
-    private final RedisDict<RedisObject, Long> expires;
+    private final RedisDict<String, RedisObject> dict;
+    private final RedisDict<String, Long> expires;
 
     // 不参与序列化
-    private transient RedisDict<RedisObject, List<RedisClient>> watchedKeys;
-    private transient RedisDict<RedisObject, List<RedisClient>> blockedKeys;
+    private transient RedisDict<String, List<RedisClient>> watchedKeys;
+    private transient RedisDict<String, List<RedisClient>> blockedKeys;
     private transient volatile RedisCommand redisCommand = new RedisCommand();
     // 自上次保存修改次数
     private static long modCount;
     // 当前expire检查的个数，保证能扫描到整个expire字典
-    private transient long checkCount;
+
     // 上次保存时间
     private static long saveTime = System.currentTimeMillis();
 
     public static Runnable saveTask = () -> {
         try {
-            RedisDB.save();
+            RedisDB2.save();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -134,7 +135,7 @@ public class RedisDB implements Serializable {
     public void checkExpire(int count) {
         // 检查过期的键，一次只检查少量几个，防止工作线程阻塞过久
         while (count > 0) {
-            RedisObject key = expires.getRandom().getKey();
+            String key = expires.getRandom().getKey();
             if (!checkKey(key)) {
                 expires.remove(key);
                 deleteKey(key);
@@ -143,7 +144,7 @@ public class RedisDB implements Serializable {
         }
     }
 
-    private RedisDB() {
+    private RedisDB2() {
         dict = new RedisDict<>();
         expires = new RedisDict<>();
         watchedKeys = new RedisDict<>();
@@ -152,7 +153,7 @@ public class RedisDB implements Serializable {
 
     void flushDb() {
         // 清空数据库，同时关联被监视的键
-        for(RedisObject key:dict.keySet()) {
+        for(String key:dict.keySet()) {
             touchWatch(key);
         }
         dict.clear();
@@ -160,7 +161,7 @@ public class RedisDB implements Serializable {
 
     }
 
-    public void watchAdd(RedisClient client, RedisObject key) {
+    public void watchAdd(RedisClient client, String key) {
         // 添加监视key,和客户端相关联
         // 这里没有验证key是否存在，官方就是这么实现的,可能是考虑到不存在的键被监视时可以监控它的添加
         // 没有去重措施，可以重复添加client，当然建议某个客户端不要重复watch某个键
@@ -177,7 +178,7 @@ public class RedisDB implements Serializable {
             watchedKeys.remove(key);
         }
     }
-    public void touchWatch(RedisObject key) {
+    public void touchWatch(String key) {
         // 检测被监视的键是否改动，在set、del等改变键值的方法中需要调用
         modCount ++;
         List<RedisClient> redisClients = watchedKeys.get(key);
@@ -187,13 +188,13 @@ public class RedisDB implements Serializable {
         }
     }
 
-    public void blockedAdd(RedisClient client, RedisObject key) {
+    public void blockedAdd(RedisClient client, String key) {
         if(!blockedKeys.containsKey(key)){
             blockedKeys.put(key, new LinkedList<>());
         }
         blockedKeys.get(key).add(client);
     }
-    public void blockedRemove(RedisClient client, RedisObject key) {
+    public void blockedRemove(RedisClient client, String key) {
         List<RedisClient> clients = blockedKeys.get(key);
         if(clients==null) return;
         clients.remove(client);
@@ -202,14 +203,13 @@ public class RedisDB implements Serializable {
         }
     }
     public static void checkBlockedTimeout() {
-        for(RedisDB db:dbs) {
-            for (RedisObject redisObject : db.blockedKeys.keySet()) {
-                db.checkBlockedTimeout(redisObject);
+        for(RedisDB2 db:dbs) {
+            for (String key : db.blockedKeys.keySet()) {
+                db.checkBlockedTimeout(key);
             }
         }
-
     }
-    void checkBlockedTimeout(RedisObject key) {
+    void checkBlockedTimeout(String key) {
         List<RedisClient> list = blockedKeys.get(key);
         if(list==null) return;
         Iterator<RedisClient> iterator = list.iterator();
@@ -241,28 +241,27 @@ public class RedisDB implements Serializable {
 
     }
 
-
-    public RedisDict<RedisObject, RedisObject> getDict() {
+    public RedisDict<String, RedisObject> getDict() {
         return dict;
     }
 
-    public Set<RedisObject> getKeys() {
+    public Set<String> getKeys() {
         return dict.keySet();
     }
 
-    public void deleteKey(RedisObject key) {
+    public void deleteKey(String key) {
         touchWatch(key);
         dict.remove(key);
     }
 
-    public boolean checkKey(RedisObject key) {
+    public boolean checkKey(String key) {
         if(!dict.containsKey(key)) return false;
         if(!expires.containsKey(key)) return true;
         Long exp = expires.get(key);
         return exp > System.currentTimeMillis();
     }
 
-    public boolean checkAndDelKey(RedisObject key) {
+    public boolean checkAndDelKey(String key) {
         if(!dict.containsKey(key)) return false;
         if(!expires.containsKey(key)) return true;
         Long exp = expires.get(key);
@@ -274,7 +273,7 @@ public class RedisDB implements Serializable {
         return false;
     }
 
-    void removeNull(RedisObject key) {
+    void removeNull(String key) {
         RedisObject object = dict.get(key);
         if(object==null) return;
         if(object instanceof RedisList && ((RedisList) object).isEmpty()){
@@ -284,16 +283,52 @@ public class RedisDB implements Serializable {
             deleteKey(key);
         }
     }
-    private void removeNull(RedisObject key, RedisSet value){
+    private void removeNull(String key, RedisSet value){
         if(value.isEmpty()){
             deleteKey(key);
         }
     }
-    private void removeNull(RedisObject key, RedisList value){
+    private void removeNull(String key, RedisList value){
         if(value.isEmpty()){
             deleteKey(key);
         }
     }
+
+    public RedisObject get(String key) {
+        checkAndDelKey(key);
+        return dict.get(key);
+    }
+
+    public RedisString getString(String key) {
+        RedisObject obj = get(key);
+        if(obj ==null || obj instanceof RedisString){
+            return (RedisString) obj;
+        }
+        throw RedisException.ERROR_TYPE;
+    }
+
+    public RedisList getList(String key) {
+        RedisObject obj = get(key);
+        if(obj==null) return null;
+        if(obj instanceof RedisList) return (RedisList) obj;
+        throw RedisException.ERROR_TYPE;
+    }
+
+    public RedisSet getSet(String key){
+        RedisObject obj = get(key);
+        if(obj==null) return null;
+        if(obj instanceof RedisSet) return (RedisSet) obj;
+        throw RedisException.ERROR_TYPE;
+    }
+    public RedisDict<String, RedisString> getHash(String key) {
+        RedisObject obj = get(key);
+        if(obj==null) return null;
+        if(obj instanceof RedisDict) return (RedisDict<String, RedisString>) obj;
+        throw RedisException.ERROR_TYPE;
+    }
+
+
+
 
     /**
      * 数据库相关辅助命令

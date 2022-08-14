@@ -1,5 +1,7 @@
-package core;
+package core.handler;
 
+import core.RedisMessagePool;
+import core.structure.RedisString;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
@@ -29,7 +31,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
     public void write0(ChannelHandlerContext ctx, Object msg, ChannelPromise promise, List<RedisMessage> out) throws Exception {
         RedisMessage res;
         if(msg==null) {
-            res = RedisMessagePool.NULL;
+            res = core.RedisMessagePool.NULL;
         }
         else if (msg instanceof RedisMessage) {
             res = (RedisMessage) msg;
@@ -41,10 +43,10 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         else if (msg instanceof Boolean) {
             boolean rep = (Boolean) msg;
             if(rep) {
-                res = RedisMessagePool.OK;
+                res = core.RedisMessagePool.OK;
             }
             else {
-                res = RedisMessagePool.NULL;
+                res = core.RedisMessagePool.NULL;
             }
         }
         else if (msg instanceof Long) {
@@ -59,7 +61,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         }
         else if(msg instanceof Runnable) {
             ((Runnable) msg).run();
-            res = RedisMessagePool.OK;
+            res = core.RedisMessagePool.OK;
         }
         else {
             res = RedisMessagePool.ERR;

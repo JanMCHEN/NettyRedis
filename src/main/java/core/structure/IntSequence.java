@@ -1,6 +1,5 @@
-package core;
+package core.structure;
 
-import java.io.Serializable;
 import java.util.Arrays;
 
 public abstract class IntSequence implements RedisObject {
