@@ -350,7 +350,7 @@ public interface RedisString extends RedisObject {
             if(loc >= contents.length){
                 resize(loc+1);
             }
-            offset = offset - (loc << 3);
+            offset = offset - ((long) loc << 3);
             if(bit==1) {
                 contents[loc] |= (byte) 1 << offset;
             }
