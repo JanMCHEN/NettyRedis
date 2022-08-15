@@ -10,12 +10,13 @@ import java.nio.channels.FileChannel;
 
 public class AOFCallback implements RedisCommandCallback{
     FileOutputStream aof;
+    FileChannel fileChannel;
     FileDescriptor fd;
     ByteBufOutputStream writer = new ByteBufOutputStream(Unpooled.buffer());
 
     public AOFCallback() throws IOException {
-        aof = new FileOutputStream("appendonly.aof");
-        FileDescriptor fd = aof.getFD();
+        aof = new FileOutputStream("appendonly.aof", true);
+        fileChannel = aof.getChannel();
     }
 
     @Override
@@ -24,8 +25,27 @@ public class AOFCallback implements RedisCommandCallback{
     }
 
     @Override
-    public void call(RedisCommand cmd, String[] args) {
+    public void call(RedisCommand cmd, ByteBuf buf) throws IOException {
+        int readerIndex = buf.readerIndex();
+        buf.resetReaderIndex();
+        buf.readBytes(fileChannel, readerIndex);
+    }
 
+    public void fsync() {
+        try {
+            fileChannel.force(false);
+        }catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void close() {
+        try {
+            fileChannel.close();
+            aof.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void main(String[] args) throws IOException {

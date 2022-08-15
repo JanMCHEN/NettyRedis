@@ -8,8 +8,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoop;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.redis.*;
+import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
 
+import java.io.IOException;
 import java.util.List;
 
 public class CommandHandler extends SimpleChannelInboundHandler<Object> {
@@ -118,19 +120,29 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
             ctx.writeAndFlush(RedisMessageFactory.QUEUED);
             return null;
         }
-        return () -> {
-            Object res=null;
-            try {
-                res = cmd.invoke(client, args);
-            }catch (RedisException e) {
-                res = e.redisMessage;
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-            if (res==null) res = RedisMessageFactory.NULL;
-            ctx.writeAndFlush(res);
-        };
+        AOFCallback callback = null;
+        try {
+            callback = new AOFCallback();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return new RedisCommandRunnable(cmd, args, callback, ctx, client);
+//        return () -> {
+//            Object res=null;
+//            try {
+//                res = cmd.invoke(client, args);
+//            }catch (RedisException e) {
+//                res = e.redisMessage;
+//            }
+//            catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//            if (res==null) res = RedisMessageFactory.NULL;
+//            ByteBuf cmdBuf = (ByteBuf) ctx.channel().attr(AttributeKey.valueOf("cmd")).get();
+//
+//
+//            ctx.writeAndFlush(res);
+//        };
     }
 
     public RedisClient getClient(){
