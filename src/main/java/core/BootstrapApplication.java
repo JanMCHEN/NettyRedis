@@ -4,13 +4,16 @@ import annotation.ClassPathCommandScanner;
 import annotation.CommandScan;
 import annotation.Source;
 import config.PropertySource;
-import core.handler.CommandHandler;
 import core.handler.HandlerInit;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.DefaultEventLoop;
+import io.netty.channel.EventLoop;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 
 import java.io.IOException;
 
@@ -62,6 +65,8 @@ public class BootstrapApplication {
 
     private NioEventLoopGroup bossGroup;
     private NioEventLoopGroup workerGroup;
+
+    private EventLoop commandExecutor;
     private ServerBootstrap bootstrap;
 
     private CommandFactory commands;
@@ -83,6 +88,7 @@ public class BootstrapApplication {
         bossGroup = new NioEventLoopGroup(bossThreads);
         workerGroup = new NioEventLoopGroup(workerThreads);
         bootstrap = new ServerBootstrap();
+        commandExecutor = new DefaultEventLoop();
     }
 
     private void initDbs() {
@@ -128,9 +134,12 @@ public class BootstrapApplication {
             bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
             // 通道handler初始化
             HandlerInit childHandler = new HandlerInit();
-            CommandHandler commandHandler = new CommandHandler();
-            commandHandler.setCmdFactory(commands);
-            childHandler.setCmdHandler(commandHandler);
+            childHandler.setCommandFactory(commands);
+            childHandler.setEventLoop(commandExecutor);
+            String debug = source.getProperty("debug");
+            if(Boolean.parseBoolean(debug)) {
+                childHandler.setLoggingHandler(new LoggingHandler(LogLevel.DEBUG));
+            }
             bootstrap.childHandler(childHandler);
 
             ChannelFuture closeFuture = bootstrap.bind(port).sync().channel().closeFuture();

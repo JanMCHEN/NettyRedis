@@ -1,6 +1,6 @@
 package core.handler;
 
-import core.RedisMessagePool;
+import core.RedisMessageFactory;
 import core.structure.RedisString;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -31,7 +31,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
     public void write0(ChannelHandlerContext ctx, Object msg, ChannelPromise promise, List<RedisMessage> out) throws Exception {
         RedisMessage res;
         if(msg==null) {
-            res = core.RedisMessagePool.NULL;
+            res = RedisMessageFactory.NULL;
         }
         else if (msg instanceof RedisMessage) {
             res = (RedisMessage) msg;
@@ -41,13 +41,7 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
 //            res = new FullBulkStringRedisMessage(Unpooled.copiedBuffer(msg.toString(), CharsetUtil.UTF_8));
         }
         else if (msg instanceof Boolean) {
-            boolean rep = (Boolean) msg;
-            if(rep) {
-                res = core.RedisMessagePool.OK;
-            }
-            else {
-                res = core.RedisMessagePool.NULL;
-            }
+            res = (boolean)msg?RedisMessageFactory.OK: RedisMessageFactory.NULL;
         }
         else if (msg instanceof Long) {
             res = new IntegerRedisMessage((Long) msg);
@@ -61,10 +55,10 @@ public class ResultsHandler extends ChannelOutboundHandlerAdapter {
         }
         else if(msg instanceof Runnable) {
             ((Runnable) msg).run();
-            res = core.RedisMessagePool.OK;
+            res = RedisMessageFactory.OK;
         }
         else {
-            res = RedisMessagePool.ERR;
+            res = RedisMessageFactory.ERR;
         }
         if(out==null) {
             super.write(ctx, res, promise);

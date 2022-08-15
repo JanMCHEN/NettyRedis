@@ -5,14 +5,22 @@ public interface RedisCommand {
         return false;
     }
 
-    /*
-    return
-    0:passed,
-    -1:wrong number,
-    -2:syntax error,
-    -3:value not int,
-    -4:
+    /**
+     * 参数检查
+     * @param args 参数数组
+     * @return  0:passed,
+     *          -1:wrong number,
+     *          -2:syntax error,
+     *          -3:value not int,
+     *          -4:
      */
-    int checkArgs(byte[] ...args);
-    Object invoke(RedisClient client, byte[] ...args);
+    int checkArgs(String ...args);
+
+    /**
+     * 执行命令
+     * @param client    状态
+     * @param args      参数数组
+     * @return          结果
+     */
+    Object invoke(RedisClient client, String ...args);
 }

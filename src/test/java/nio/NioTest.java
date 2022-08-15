@@ -25,7 +25,6 @@ public class NioTest {
         System.out.println((byte) 'a');
         Float f = 2F;
         System.out.println(f);
-
     }
 
     @Test

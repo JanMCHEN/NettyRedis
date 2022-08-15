@@ -15,8 +15,4 @@ public class DefaultCommandFactory implements CommandFactory{
         commandMap.put(key, command);
     }
 
-    public void refresh() {
-
-    }
-
 }

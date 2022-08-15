@@ -5,6 +5,7 @@ public class PackageClassScannerTest {
 
     @Test
     public void test() {
+
         PackageClassScanner scanner = new PackageClassScanner();
 
         scanner.scan("core.commands", "org.junit");

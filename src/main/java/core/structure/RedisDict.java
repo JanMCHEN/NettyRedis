@@ -199,7 +199,7 @@ public class RedisDict<K, V> extends AbstractMap<K, V> implements RedisObject{
     }
 
     void tryResize(boolean up) {
-        if (isRehashing()) return;
+        if (isRehashing() || ht[0].table==null) return;
         int len = ht[0].table.length;
         if (up && ht[0].size >= threshold && len < MAXIMUM_CAPACITY) {
             ht[1].table = (Node<K, V>[]) newTable(len << 1);

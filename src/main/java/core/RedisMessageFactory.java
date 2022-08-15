@@ -2,7 +2,10 @@ package core;
 
 import io.netty.handler.codec.redis.*;
 
-public class RedisMessagePool {
+/**
+ * 常用地返回消息
+ */
+public class RedisMessageFactory {
     public static final RedisMessage OK = new SimpleStringRedisMessage("OK");
     public static final RedisMessage QUEUED = new SimpleStringRedisMessage("QUEUED");
     public static final RedisMessage NULL = FullBulkStringRedisMessage.NULL_INSTANCE;
@@ -23,4 +26,12 @@ public class RedisMessagePool {
             new SimpleStringRedisMessage("string"), new SimpleStringRedisMessage("list"), new SimpleStringRedisMessage("set"),
             new SimpleStringRedisMessage("zset"), new SimpleStringRedisMessage("hash"), new SimpleStringRedisMessage("none")
     };
+
+    public static  RedisMessage errorCommandNumberMessage(String cmd) {
+        return new ErrorRedisMessage("ERR wrong number of arguments for '"+ cmd + "' command");
+    }
+
+    public static RedisMessage unknownCommandMessage(String cmd) {
+        return new ErrorRedisMessage("ERR unknown command '"+ cmd +"'");
+    }
 }

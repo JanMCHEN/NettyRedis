@@ -1,5 +1,6 @@
 package core;
 
+import core.exception.ErrorTypeException;
 import core.exception.RedisException;
 import core.structure.*;
 import utils.CommonUtils;
@@ -235,27 +236,16 @@ public class RedisDB implements Serializable {
     }
 
     public void deleteKey(String key) {
-        touchWatch(key);
-        dict.remove(key);
+        RedisObject remove = dict.remove(key);
+        if (remove != null) touchWatch(key);
     }
 
     public boolean checkKey(String key) {
         if(!dict.containsKey(key)) return false;
-        if(!expires.containsKey(key)) return true;
-        Long exp = expires.get(key);
-        return exp > System.currentTimeMillis();
-    }
-
-    public boolean checkAndDelKey(String key) {
-        if(!dict.containsKey(key)) return false;
-        if(!expires.containsKey(key)) return true;
-        Long exp = expires.get(key);
-        if(exp > System.currentTimeMillis()) {
-            return true;
-        }
-        expires.remove(key);
-        deleteKey(key);
-        return false;
+        Long exp = expires.getOrDefault(key, Long.MAX_VALUE);
+        boolean exists = exp > System.currentTimeMillis();
+        if (!exists) deleteKey(key);
+        return exists;
     }
 
     void removeNull(String key) {
@@ -280,8 +270,50 @@ public class RedisDB implements Serializable {
     }
 
     public RedisObject get(String key) {
-        checkAndDelKey(key);
+        checkKey(key);
         return dict.get(key);
+    }
+
+    public boolean set(String key, RedisString value, Long px, boolean nx, boolean xx) {
+        if(nx || xx) {
+            boolean check = checkKey(key);
+            if(check && xx) {
+                return set(key, value, px, false, false);
+            }
+            else if(!check && nx) {
+                return set(key, value, px, false, false);
+            }
+            return false;
+        }
+        touchWatch(key);
+        dict.put(key, value);
+        if (px != null) {
+            expires.put(key, px+System.currentTimeMillis());
+        }
+        return true;
+    }
+
+    public void expire(String key, long px, boolean check) {
+        if (check && !checkKey(key)) return;
+        expires.put(key, px+System.currentTimeMillis());
+    }
+
+    public void set(String key, RedisObject value) {
+        touchWatch(key);
+        dict.put(key, value);
+        expires.remove(key);
+    }
+
+    public boolean setIfAbsent(String key, RedisString value) {
+        if (checkKey(key)) return false;
+        set(key, value);
+        return true;
+    }
+
+    public boolean setIfPresent(String key, RedisString value) {
+        if (!checkKey(key)) return false;
+        set(key, value);
+        return true;
     }
 
     public RedisString getString(String key) {
@@ -289,27 +321,31 @@ public class RedisDB implements Serializable {
         if(obj ==null || obj instanceof RedisString){
             return (RedisString) obj;
         }
-        throw RedisException.ERROR_TYPE;
+        throw new ErrorTypeException();
     }
 
     public RedisList getList(String key) {
         RedisObject obj = get(key);
         if(obj==null) return null;
         if(obj instanceof RedisList) return (RedisList) obj;
-        throw RedisException.ERROR_TYPE;
+        throw new ErrorTypeException();
     }
 
     public RedisSet getSet(String key){
         RedisObject obj = get(key);
         if(obj==null) return null;
         if(obj instanceof RedisSet) return (RedisSet) obj;
-        throw RedisException.ERROR_TYPE;
+        throw new ErrorTypeException();
     }
+    @SuppressWarnings("unchecked")
     public RedisDict<String, RedisString> getHash(String key) {
         RedisObject obj = get(key);
         if(obj==null) return null;
-        if(obj instanceof RedisDict) return (RedisDict<String, RedisString>) obj;
-        throw RedisException.ERROR_TYPE;
+        try {
+            return (RedisDict<String, RedisString>) obj;
+        }catch (Exception e) {
+            throw new ErrorTypeException();
+        }
     }
 
 

@@ -10,9 +10,9 @@ public class RedisClient {
 
     private class CommandMetaData {
         private final RedisCommand method;
-        private final byte[][]args;
+        private final String[]args;
 
-        public CommandMetaData(RedisCommand method, byte[][] args) {
+        public CommandMetaData(RedisCommand method, String[] args) {
             this.method = method;
             this.args = args;
         }
@@ -46,7 +46,7 @@ public class RedisClient {
             db = RedisDB.getDB(i);
         }
         else {
-            throw new RedisException(RedisMessagePool.ERR_SEL);
+            throw new RedisException(RedisMessageFactory.ERR_SEL);
         }
     }
 
@@ -83,36 +83,36 @@ public class RedisClient {
         state = (byte) (state | 8);
     }
 
-    public void addCommand(RedisCommand method ,byte[][] args) {
+    public void addCommand(RedisCommand method ,String[] args) {
         if(isError()||isDirty())
             return;
         commands.add(new CommandMetaData(method, args));
     }
 
     public Object watch(String...keys) {
-        if(!isNormal()) return RedisMessagePool.ERR_WATCH;
+        if(!isNormal()) return RedisMessageFactory.ERR_WATCH;
         for(String key:keys) {
             watchedKeys.add(key);
             db.watchAdd(this, key);
         }
         watchedKeys.addAll(Arrays.asList(keys));
-        return RedisMessagePool.OK;
+        return RedisMessageFactory.OK;
     }
     public Object unwatch() {
         if(!isMulti()) reset();
         // 如果在执行事务过程中执行了unwatch,不进行任何动作，不知道官方为啥要把这条命令在multi中执行
-        return RedisMessagePool.OK;
+        return RedisMessageFactory.OK;
     }
     public Object exec() {
         Object res=null;
         if(isError()) {
-            res = RedisMessagePool.ERR_EXEC_ERR;
+            res = RedisMessageFactory.ERR_EXEC_ERR;
         }
         else if(isDirty()) {
-            res = RedisMessagePool.NULL;
+            res = RedisMessageFactory.NULL;
         }
         else if(isNormal()) {
-            res = RedisMessagePool.ERR_EXEC_MUL;
+            res = RedisMessageFactory.ERR_EXEC_MUL;
         }
         else if(isMulti()) {
             Iterator<CommandMetaData> iterator = commands.iterator();
@@ -137,14 +137,14 @@ public class RedisClient {
         return res;
     }
     public Object multi(){
-        if(isMulti()) return RedisMessagePool.ERR_MULTI;
+        if(isMulti()) return RedisMessageFactory.ERR_MULTI;
         setMulti();
-        return RedisMessagePool.OK;
+        return RedisMessageFactory.OK;
     }
     public Object discard() {
-        if(!isMulti()) return RedisMessagePool.ERR_DISCARD;
+        if(!isMulti()) return RedisMessageFactory.ERR_DISCARD;
         reset();
-        return RedisMessagePool.OK;
+        return RedisMessageFactory.OK;
     }
     public void reset() {
         state &= 8;
@@ -202,7 +202,7 @@ public class RedisClient {
     }
     public void writeAndFlush(Object msg) {
         if (msg==null) {
-            msg = RedisMessagePool.NULL;
+            msg = RedisMessageFactory.NULL;
         }
         ctx.writeAndFlush(msg);
     }
