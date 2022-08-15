@@ -52,7 +52,7 @@ public class IntSet extends IntSequence implements RedisSet{
     public RedisSet upToHash() {
         RedisSet set = new RedisSet.Hash();
         for(int i=0;i<length;++i) {
-            set.add(new RedisString.RedisInt(get(i)));
+            set.add(RedisString.newString(get(i)));
         }
         return set;
     }
@@ -64,18 +64,18 @@ public class IntSet extends IntSequence implements RedisSet{
             // 提前失败,不保证实际插入的数据是否会溢出
             return -1;
         }
-        for (RedisObject value : values) {
-            if (add(((RedisString)value).get())) ans += 1;
-        }
+//        for (RedisObject value : values) {
+//            if (add(((RedisString)value).get())) ans += 1;
+//        }
         return ans;
     }
 
     @Override
     public long remove(RedisObject... values) {
         int ans = 0;
-        for(RedisObject value:values) {
-            if(delete(((RedisString)value).get())) ans++;
-        }
+//        for(RedisObject value:values) {
+//            if(delete(((RedisString)value).get())) ans++;
+//        }
         return ans;
     }
 
@@ -84,7 +84,7 @@ public class IntSet extends IntSequence implements RedisSet{
         long[] array = toArray();
         List<RedisObject> res = new ArrayList<>(length);
         for(int i=0;i<length;++i) {
-            res.add(new RedisString.RedisInt(array[i]));
+            res.add(RedisString.newString(array[i]));
         }
         return res;
     }
@@ -93,9 +93,9 @@ public class IntSet extends IntSequence implements RedisSet{
     public boolean contains(RedisObject value) {
 //        if(!value.isEncodeInt()) return false;
 //        return search((Long) value.getPtr());
-        if(value instanceof RedisString.RedisInt) {
-            return search(((RedisString.RedisInt) value).get());
-        }
+//        if(value instanceof RedisString.RedisInt) {
+//            return search(((RedisString.RedisInt) value).get());
+//        }
         return false;
     }
 

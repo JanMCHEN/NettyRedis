@@ -24,13 +24,13 @@ public class RedisClient {
 
     private byte state = 0;
     private final List<CommandMetaData> commands = new LinkedList<>();
-    private final HashSet<RedisObject> watchedKeys = new HashSet<>();
+    private final HashSet<String> watchedKeys = new HashSet<>();
     private RedisDB db;
     private final ChannelHandlerContext ctx;
 
     // blocked
     long timeout;
-    List<RedisObject> blockedKeys = new LinkedList<>();
+    List<String> blockedKeys = new LinkedList<>();
     RedisObject target;
 
 
@@ -50,9 +50,6 @@ public class RedisClient {
         }
     }
 
-    public RedisDB.RedisCommand getRedisCommand() {
-        return db.getRedisCommand();
-    }
 
     public boolean isMulti() {
         return (state & 1) == 1;
@@ -92,9 +89,9 @@ public class RedisClient {
         commands.add(new CommandMetaData(method, args));
     }
 
-    public Object watch(RedisObject...keys) {
+    public Object watch(String...keys) {
         if(!isNormal()) return RedisMessagePool.ERR_WATCH;
-        for(RedisObject key:keys) {
+        for(String key:keys) {
             watchedKeys.add(key);
             db.watchAdd(this, key);
         }
@@ -152,21 +149,21 @@ public class RedisClient {
     public void reset() {
         state &= 8;
         commands.clear();
-        Iterator<RedisObject> iterator = watchedKeys.iterator();
+        Iterator<String> iterator = watchedKeys.iterator();
         while(iterator.hasNext()) {
-            RedisObject key = iterator.next();
+            String key = iterator.next();
             db.watchRemove(this, key);
             iterator.remove();
         }
     }
 
-    public void blocked(long timeout, RedisObject target, RedisObject ...keys) {
+    public void blocked(long timeout, RedisObject target, String ...keys) {
         if(keys.length==0) return;
         unblocked();
         setBlocked();
         this.timeout = timeout==0? timeout: System.currentTimeMillis() + timeout;
         this.target = target;
-        for(RedisObject key:keys) {
+        for(String key:keys) {
             blockedKeys.add(key);
             db.blockedAdd(this, key);
         }
@@ -178,7 +175,7 @@ public class RedisClient {
         state &= 7;
         timeout = -1;
         target = null;
-        Iterator<RedisObject> iterator = blockedKeys.iterator();
+        Iterator<String> iterator = blockedKeys.iterator();
         if(!checkDb) {
             blockedKeys.clear();
             return;
@@ -188,20 +185,20 @@ public class RedisClient {
             iterator.remove();
         }
     }
-    public void blockedExec(RedisObject key) {
-        unblocked(false);
-        RedisObject val = db.getRedisCommand().lPop(key);
-        if(target!=null) {
-            try {
-                db.getRedisCommand().lPush(target, val);
-            }catch (RedisException e) {
-                writeAndFlush(e.redisMessage);
-                // push失败 target不是list类型，push回去
-                db.getRedisCommand().lPush(key, val);
-                return;
-            }
-        }
-        writeAndFlush(new Object[]{key, val});
+    public void blockedExec(String key) {
+//        unblocked(false);
+//        RedisObject val = db.getRedisCommand().lPop(key);
+//        if(target!=null) {
+//            try {
+//                db.getRedisCommand().lPush(target, val);
+//            }catch (RedisException e) {
+//                writeAndFlush(e.redisMessage);
+//                // push失败 target不是list类型，push回去
+//                db.getRedisCommand().lPush(key, val);
+//                return;
+//            }
+//        }
+//        writeAndFlush(new Object[]{key, val});
     }
     public void writeAndFlush(Object msg) {
         if (msg==null) {

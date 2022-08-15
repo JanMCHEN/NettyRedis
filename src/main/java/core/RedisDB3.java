@@ -1,323 +1,303 @@
-package core;
-
-import core.exception.RedisException;
-import core.structure.*;
-import utils.CommonUtils;
-
-import java.io.*;
-import java.util.*;
-
-//@SuppressWarnings("all")
-public class RedisDB implements Serializable {
-
-    private static final long serialVersionUID = 3624988181265L;
-
-    public static RedisDB[] dbs;
-
-    public static RedisDB getDB(int i) {
-        if(i>=dbs.length||i<0) {
-            i = 0;
-        }
-        return dbs[i];
-    }
-    static void flushAll() {
-        for(RedisDB db:dbs) {
-            db.flushDb();
-        }
-    }
-
-    public static void removeFromExpire(int count) {
-        for(RedisDB db:dbs) {
-            db.checkExpire(count);
-        }
-    }
-    @SuppressWarnings("all")
-    private static void save() throws IOException {
-        // 生成一个随机文件名后缀用来替换原文件
-        String ext = String.valueOf(System.currentTimeMillis());
-        File fileName =  new File("0.rdb."+ext);
-        FileOutputStream file = new FileOutputStream(fileName);
-        try (file; ObjectOutputStream oos = new ObjectOutputStream(file)) {
-            modCount = 0;
-            for (RedisDB db : dbs) {
-                oos.writeObject(db);
-            }
-        }
-        File tmp = new File(ext);
-        File db = new File("0.rdb");
-        if(!db.exists()) {
-            // db文件不存在时直接重命名
-            fileName.renameTo(db);
-            return;
-        }
-        boolean b = db.renameTo(tmp);
-        if(b) {
-            boolean b1 = fileName.renameTo(db);
-            if(b1) {
-                tmp.delete();
-                return;
-            }
-
-        }
-        // 替换失败，改回来
-        tmp.renameTo(db);
-        throw new IOException("rename fail");
-    }
-
-    public static void saveLast() throws IOException {
-        removeFromExpire(0);
-        save();
-    }
-
-    public static void init(int dbCnt) throws IOException, ClassNotFoundException {
-        dbs = new RedisDB[dbCnt];
-        try (FileInputStream file = new FileInputStream("0.rdb"); ObjectInputStream ois = new ObjectInputStream(file)) {
-            for (int i = 0; i < dbs.length; ++i) {
-                dbs[i] = (RedisDB) ois.readObject();
-                if (dbs[i] != null) {
-                    dbs[i].watchedKeys = new RedisDict<>();
-                    dbs[i].blockedKeys = new RedisDict<>();
-                }
-            }
-        } catch (FileNotFoundException e) {
-            for (int i = 0; i < dbs.length; ++i) {
-                dbs[i] = new RedisDB();
-            }
-        }
-
-    }
-
-    private final RedisDict<String, RedisObject> dict;
-    private final RedisDict<String, Long> expires;
-
-    // 不参与序列化
-    private transient RedisDict<String, List<RedisClient>> watchedKeys;
-    private transient RedisDict<String, List<RedisClient>> blockedKeys;
-    // 自上次保存修改次数
-    private static long modCount;
-    // 当前expire检查的个数，保证能扫描到整个expire字典
-
-    // 上次保存时间
-    private static long saveTime = System.currentTimeMillis();
-
-    public static Runnable saveTask = () -> {
-        try {
-            RedisDB.save();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    };
-
-    public static boolean isSaveNeed(long delay, long count) {
-        if(modCount >= count && System.currentTimeMillis()-saveTime>=delay*1000) {
-            modCount = 0;
-            saveTime = System.currentTimeMillis();
-            return true;
-        }
-        return false;
-    }
-
-
-    public void checkExpire(int count) {
-        // 检查过期的键，一次只检查少量几个，防止工作线程阻塞过久
-        while (count > 0) {
-            String key = expires.getRandom().getKey();
-            if (!checkKey(key)) {
-                expires.remove(key);
-                deleteKey(key);
-            }
-            count--;
-        }
-    }
-
-    private RedisDB() {
-        dict = new RedisDict<>();
-        expires = new RedisDict<>();
-        watchedKeys = new RedisDict<>();
-        blockedKeys = new RedisDict<>();
-    }
-
-    void flushDb() {
-        // 清空数据库，同时关联被监视的键
-        for(String key:dict.keySet()) {
-            touchWatch(key);
-        }
-        dict.clear();
-        expires.clear();
-    }
-
-    public void watchAdd(RedisClient client, String key) {
-        // 添加监视key,和客户端相关联
-        // 这里没有验证key是否存在，官方就是这么实现的,可能是考虑到不存在的键被监视时可以监控它的添加
-        // 没有去重措施，可以重复添加client，当然建议某个客户端不要重复watch某个键
-        if(!watchedKeys.containsKey(key)){
-            watchedKeys.put(key, new LinkedList<>());
-        }
-        watchedKeys.get(key).add(client);
-    }
-    public void watchRemove(RedisClient client, String key) {
-        List<RedisClient> clients = watchedKeys.get(key);
-        if(clients==null) return;
-        clients.remove(client);
-        if(clients.isEmpty()){
-            watchedKeys.remove(key);
-        }
-    }
-    public void touchWatch(String key) {
-        // 检测被监视的键是否改动，在set、del等改变键值的方法中需要调用
-        modCount ++;
-        List<RedisClient> redisClients = watchedKeys.get(key);
-        if(redisClients ==null) return;
-        for(RedisClient client: redisClients) {
-            client.setDirty();
-        }
-    }
-
-    public void blockedAdd(RedisClient client, String key) {
-        if(!blockedKeys.containsKey(key)){
-            blockedKeys.put(key, new LinkedList<>());
-        }
-        blockedKeys.get(key).add(client);
-    }
-    public void blockedRemove(RedisClient client, String key) {
-        List<RedisClient> clients = blockedKeys.get(key);
-        if(clients==null) return;
-        clients.remove(client);
-        if(clients.isEmpty()){
-            blockedKeys.remove(key);
-        }
-    }
-    public static void checkBlockedTimeout() {
-        for(RedisDB db:dbs) {
-            for (String key : db.blockedKeys.keySet()) {
-                db.checkBlockedTimeout(key);
-            }
-        }
-    }
-    void checkBlockedTimeout(String key) {
-        List<RedisClient> list = blockedKeys.get(key);
-        if(list==null) return;
-        Iterator<RedisClient> iterator = list.iterator();
-        RedisClient client;
-        while (iterator.hasNext()){
-            client = iterator.next();
-            if(client.timeout==0 || !CommonUtils.isExpire(client.timeout)){
-                continue;
-            }
-            iterator.remove();
-            client.unblocked(false);
-            client.writeAndFlush(null);
-        }
-    }
-    void touchBlocked(String key) {
-        List<RedisClient> list = blockedKeys.get(key);
-        if(list==null) return;
-        Iterator<RedisClient> iterator = list.iterator();
-        RedisClient client;
-        while (iterator.hasNext()){
-            client = iterator.next();
-            iterator.remove();
-            if(client.timeout==0 || !CommonUtils.isExpire(client.timeout)){
-                client.blockedExec(key);
-                break;
-            }
-            client.unblocked(false);
-        }
-
-    }
-
-    public RedisDict<String, RedisObject> getDict() {
-        return dict;
-    }
-
-    public Set<String> getKeys() {
-        return dict.keySet();
-    }
-
-    public void deleteKey(String key) {
-        touchWatch(key);
-        dict.remove(key);
-    }
-
-    public boolean checkKey(String key) {
-        if(!dict.containsKey(key)) return false;
-        if(!expires.containsKey(key)) return true;
-        Long exp = expires.get(key);
-        return exp > System.currentTimeMillis();
-    }
-
-    public boolean checkAndDelKey(String key) {
-        if(!dict.containsKey(key)) return false;
-        if(!expires.containsKey(key)) return true;
-        Long exp = expires.get(key);
-        if(exp > System.currentTimeMillis()) {
-            return true;
-        }
-        expires.remove(key);
-        deleteKey(key);
-        return false;
-    }
-
-    void removeNull(String key) {
-        RedisObject object = dict.get(key);
-        if(object==null) return;
-        if(object instanceof RedisList && ((RedisList) object).isEmpty()){
-            deleteKey(key);
-        }
-        else if(object instanceof RedisSet && ((RedisSet) object).isEmpty()) {
-            deleteKey(key);
-        }
-    }
-    private void removeNull(String key, RedisSet value){
-        if(value.isEmpty()){
-            deleteKey(key);
-        }
-    }
-    private void removeNull(String key, RedisList value){
-        if(value.isEmpty()){
-            deleteKey(key);
-        }
-    }
-
-    public RedisObject get(String key) {
-        checkAndDelKey(key);
-        return dict.get(key);
-    }
-
-    public RedisString getString(String key) {
-        RedisObject obj = get(key);
-        if(obj ==null || obj instanceof RedisString){
-            return (RedisString) obj;
-        }
-        throw RedisException.ERROR_TYPE;
-    }
-
-    public RedisList getList(String key) {
-        RedisObject obj = get(key);
-        if(obj==null) return null;
-        if(obj instanceof RedisList) return (RedisList) obj;
-        throw RedisException.ERROR_TYPE;
-    }
-
-    public RedisSet getSet(String key){
-        RedisObject obj = get(key);
-        if(obj==null) return null;
-        if(obj instanceof RedisSet) return (RedisSet) obj;
-        throw RedisException.ERROR_TYPE;
-    }
-    public RedisDict<String, RedisString> getHash(String key) {
-        RedisObject obj = get(key);
-        if(obj==null) return null;
-        if(obj instanceof RedisDict) return (RedisDict<String, RedisString>) obj;
-        throw RedisException.ERROR_TYPE;
-    }
-
-
-
-
-    /**
-     * 数据库相关辅助命令
-     */
+//package core;
+//
+//import core.exception.RedisException;
+//import core.structure.*;
+//import core.structure.SortedSet;
+//import utils.CommonUtils;
+//
+//import java.io.*;
+//import java.util.*;
+//
+//public class RedisDB implements Serializable {
+//
+//    private static final long serialVersionUID = 3624988181265L;
+//
+//    public static RedisDB[] dbs;
+//
+//    public static RedisDB getDB(int i) {
+//        if(i>=dbs.length||i<0) {
+//            i = 0;
+//        }
+//        return dbs[i];
+//    }
+//    static void flushAll() {
+//        for(RedisDB db:dbs) {
+//            db.flushDb();
+//        }
+//    }
+//
+//    public static void removeFromExpire(int count) {
+//        for(RedisDB db:dbs) {
+//            db.checkExpire(count);
+//        }
+//    }
+//
+//    private static void save() throws IOException {
+//        // 生成一个随机文件名后缀用来替换原文件
+//        String ext = String.valueOf(System.currentTimeMillis());
+//        File fileName =  new File("0.rdb."+ext);
+//        FileOutputStream file = new FileOutputStream(fileName);
+//        try (file; ObjectOutputStream oos = new ObjectOutputStream(file)) {
+//            modCount = 0;
+//            for (RedisDB db : dbs) {
+//                oos.writeObject(db);
+//            }
+//        }
+//        File tmp = new File(ext);
+//        File db = new File("0.rdb");
+//        if(!db.exists()) {
+//            // db文件不存在时直接重命名
+//            fileName.renameTo(db);
+//            return;
+//        }
+//        boolean b = db.renameTo(tmp);
+//        if(b) {
+//            boolean b1 = fileName.renameTo(db);
+//            if(b1) {
+//                tmp.delete();
+//                return;
+//            }
+//
+//        }
+//        // 替换失败，改回来
+//        tmp.renameTo(db);
+//        throw new IOException("rename fail");
+//    }
+//
+//    public static void saveLast() throws IOException {
+//        removeFromExpire(0);
+//        save();
+//    }
+//
+//    public static void init(int dbCnt) throws IOException, ClassNotFoundException {
+//        dbs = new RedisDB[dbCnt];
+//        try (FileInputStream file = new FileInputStream("0.rdb"); ObjectInputStream ois = new ObjectInputStream(file)) {
+//            for (int i = 0; i < dbs.length; ++i) {
+//                dbs[i] = (RedisDB) ois.readObject();
+//                if (dbs[i] != null) {
+//                    dbs[i].watchedKeys = new RedisDict<>();
+//                    dbs[i].blockedKeys = new RedisDict<>();
+//                }
+//            }
+//        } catch (FileNotFoundException e) {
+//            for (int i = 0; i < dbs.length; ++i) {
+//                dbs[i] = new RedisDB();
+//            }
+//        }
+//
+//    }
+//
+//    private final RedisDict<RedisObject, RedisObject> dict;
+//    private final RedisDict<RedisObject, Long> expires;
+//
+//    // 不参与序列化
+//    private transient RedisDict<RedisObject, List<RedisClient>> watchedKeys;
+//    private transient RedisDict<RedisObject, List<RedisClient>> blockedKeys;
+//    private transient volatile RedisCommand redisCommand = new RedisCommand();
+//    // 自上次保存修改次数
+//    private static long modCount;
+//    // 当前expire检查的个数，保证能扫描到整个expire字典
+//    private transient long checkCount;
+//    // 上次保存时间
+//    private static long saveTime = System.currentTimeMillis();
+//
+//    public static Runnable saveTask = () -> {
+//        try {
+//            RedisDB.save();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    };
+//
+//    public static boolean isSaveNeed(long delay, long count) {
+//        if(modCount >= count && System.currentTimeMillis()-saveTime>=delay*1000) {
+//            modCount = 0;
+//            saveTime = System.currentTimeMillis();
+//            return true;
+//        }
+//        return false;
+//    }
+//
+//    public RedisCommand getRedisCommand() {
+//        // 序列化时忽略redisCommand,所以反序列化时值null,需要重新赋值
+//        // 有一点点多线程风险,多个线程获取同一个数据库的redisCommand时有风险,故加锁
+//        if(redisCommand==null) {
+//            synchronized (this) {
+//                if(redisCommand==null) {
+//                    redisCommand = new RedisCommand();
+//                }
+//            }
+//        }
+//        return redisCommand;
+//    }
+//
+//    public void checkExpire(int count) {
+//        // 检查过期的键，一次只检查少量几个，防止工作线程阻塞过久
+//        while (count > 0) {
+//            RedisObject key = expires.getRandom().getKey();
+//            if (!checkKey(key)) {
+//                expires.remove(key);
+//                deleteKey(key);
+//            }
+//            count--;
+//        }
+//    }
+//
+//    private RedisDB() {
+//        dict = new RedisDict<>();
+//        expires = new RedisDict<>();
+//        watchedKeys = new RedisDict<>();
+//        blockedKeys = new RedisDict<>();
+//    }
+//
+//    void flushDb() {
+//        // 清空数据库，同时关联被监视的键
+//        for(RedisObject key:dict.keySet()) {
+//            touchWatch(key);
+//        }
+//        dict.clear();
+//        expires.clear();
+//
+//    }
+//
+//    public void watchAdd(RedisClient client, RedisObject key) {
+//        // 添加监视key,和客户端相关联
+//        // 这里没有验证key是否存在，官方就是这么实现的,可能是考虑到不存在的键被监视时可以监控它的添加
+//        // 没有去重措施，可以重复添加client，当然建议某个客户端不要重复watch某个键
+//        if(!watchedKeys.containsKey(key)){
+//            watchedKeys.put(key, new LinkedList<>());
+//        }
+//        watchedKeys.get(key).add(client);
+//    }
+//    public void watchRemove(RedisClient client, RedisObject key) {
+//        List<RedisClient> clients = watchedKeys.get(key);
+//        if(clients==null) return;
+//        clients.remove(client);
+//        if(clients.isEmpty()){
+//            watchedKeys.remove(key);
+//        }
+//    }
+//    public void touchWatch(RedisObject key) {
+//        // 检测被监视的键是否改动，在set、del等改变键值的方法中需要调用
+//        modCount ++;
+//        List<RedisClient> redisClients = watchedKeys.get(key);
+//        if(redisClients ==null) return;
+//        for(RedisClient client: redisClients) {
+//            client.setDirty();
+//        }
+//    }
+//
+//    public void blockedAdd(RedisClient client, RedisObject key) {
+//        if(!blockedKeys.containsKey(key)){
+//            blockedKeys.put(key, new LinkedList<>());
+//        }
+//        blockedKeys.get(key).add(client);
+//    }
+//    public void blockedRemove(RedisClient client, RedisObject key) {
+//        List<RedisClient> clients = blockedKeys.get(key);
+//        if(clients==null) return;
+//        clients.remove(client);
+//        if(clients.isEmpty()){
+//            blockedKeys.remove(key);
+//        }
+//    }
+//    public static void checkBlockedTimeout() {
+//        for(RedisDB db:dbs) {
+//            for (RedisObject redisObject : db.blockedKeys.keySet()) {
+//                db.checkBlockedTimeout(redisObject);
+//            }
+//        }
+//
+//    }
+//    void checkBlockedTimeout(RedisObject key) {
+//        List<RedisClient> list = blockedKeys.get(key);
+//        if(list==null) return;
+//        Iterator<RedisClient> iterator = list.iterator();
+//        RedisClient client;
+//        while (iterator.hasNext()){
+//            client = iterator.next();
+//            if(client.timeout==0 || !CommonUtils.isExpire(client.timeout)){
+//                continue;
+//            }
+//            iterator.remove();
+//            client.unblocked(false);
+//            client.writeAndFlush(null);
+//        }
+//    }
+//    void touchBlocked(RedisObject key) {
+//        List<RedisClient> list = blockedKeys.get(key);
+//        if(list==null) return;
+//        Iterator<RedisClient> iterator = list.iterator();
+//        RedisClient client;
+//        while (iterator.hasNext()){
+//            client = iterator.next();
+//            iterator.remove();
+//            if(client.timeout==0 || !CommonUtils.isExpire(client.timeout)){
+//                client.blockedExec(key);
+//                break;
+//            }
+//            client.unblocked(false);
+//        }
+//
+//    }
+//
+//
+//    public RedisDict<RedisObject, RedisObject> getDict() {
+//        return dict;
+//    }
+//
+//    public Set<RedisObject> getKeys() {
+//        return dict.keySet();
+//    }
+//
+//    public void deleteKey(RedisObject key) {
+//        touchWatch(key);
+//        dict.remove(key);
+//    }
+//
+//    public boolean checkKey(RedisObject key) {
+//        if(!dict.containsKey(key)) return false;
+//        if(!expires.containsKey(key)) return true;
+//        Long exp = expires.get(key);
+//        return exp > System.currentTimeMillis();
+//    }
+//
+//    public boolean checkAndDelKey(RedisObject key) {
+//        if(!dict.containsKey(key)) return false;
+//        if(!expires.containsKey(key)) return true;
+//        Long exp = expires.get(key);
+//        if(exp > System.currentTimeMillis()) {
+//            return true;
+//        }
+//        expires.remove(key);
+//        deleteKey(key);
+//        return false;
+//    }
+//
+//    void removeNull(RedisObject key) {
+//        RedisObject object = dict.get(key);
+//        if(object==null) return;
+//        if(object instanceof RedisList && ((RedisList) object).isEmpty()){
+//            deleteKey(key);
+//        }
+//        else if(object instanceof RedisSet && ((RedisSet) object).isEmpty()) {
+//            deleteKey(key);
+//        }
+//    }
+//    private void removeNull(RedisObject key, RedisSet value){
+//        if(value.isEmpty()){
+//            deleteKey(key);
+//        }
+//    }
+//    private void removeNull(RedisObject key, RedisList value){
+//        if(value.isEmpty()){
+//            deleteKey(key);
+//        }
+//    }
+//
+//    /**
+//     * 数据库相关辅助命令
+//     */
 //    public class RedisCommand {
 //
 //        private RedisCommand(){}
@@ -383,10 +363,10 @@ public class RedisDB implements Serializable {
 //            checkAndDelKey(key);
 //            return dict.get(key);
 //        }
-//        public RedisString getString(RedisObject key) {
+//        public RedisString2 getString(RedisObject key) {
 //            RedisObject obj = get(key);
-//            if(obj ==null || obj instanceof RedisString){
-//                return (RedisString) obj;
+//            if(obj ==null || obj instanceof RedisString2){
+//                return (RedisString2) obj;
 //            }
 //            throw RedisException.ERROR_TYPE;
 //        }
@@ -409,26 +389,26 @@ public class RedisDB implements Serializable {
 //            return true;
 //        }
 //        public long strLen(RedisObject key) {
-//            RedisString obj = getString(key);
+//            RedisString2 obj = getString(key);
 //            if(obj==null) {
 //                return 0;
 //            }
 //            return obj.size();
 //        }
 //        public long getBit(RedisObject key, long offset) {
-//            RedisString string = getString(key);
+//            RedisString2 string = getString(key);
 //            if(string==null) return 0;
 //            return string.getBit(offset);
 //        }
 //        public long setBit(RedisObject key, long offset, int bit) {
 //            long ans = 0;
-//            RedisString string = getString(key);
+//            RedisString2 string = getString(key);
 //            if(string==null) {
-//                string = new RedisString.RawString(new byte[(int) (offset >> 3)+1]);
+//                string = new RedisString2.RawString(new byte[(int) (offset >> 3)+1]);
 //                dict.put(key, string);
 //            }
-//            else if(!(string instanceof RedisString.RawString)) {
-//                string = RedisString.toRaw(string);
+//            else if(!(string instanceof RedisString2.RawString)) {
+//                string = RedisString2.toRaw(string);
 //                dict.put(key, string);
 //            }
 //            ans = string.getBit(offset);
@@ -437,12 +417,12 @@ public class RedisDB implements Serializable {
 //            return ans;
 //        }
 //        public long bitCount(RedisObject key) {
-//            RedisString string = getString(key);
+//            RedisString2 string = getString(key);
 //            if(string==null) return 0;
 //            return string.bitCount();
 //        }
 //        public long increase(RedisObject key, long v) {
-//            RedisString string = getString(key);
+//            RedisString2 string = getString(key);
 //            long before;
 //            try{
 //                before = string==null? 0:string.get();
@@ -452,8 +432,8 @@ public class RedisDB implements Serializable {
 //            if(v == 0) return before;
 //            touchWatch(key);
 //
-//            if(!(string instanceof RedisString.IntString)) {
-//                string = new RedisString.IntString(before+v);
+//            if(!(string instanceof RedisString2.IntString)) {
+//                string = new RedisString2.IntString(before+v);
 //                dict.put(key, string);
 //            }
 //            else {
@@ -462,17 +442,17 @@ public class RedisDB implements Serializable {
 //            return before + v;
 //        }
 //        public long append(RedisObject key, byte[] values) {
-//            RedisString string = getString(key);
+//            RedisString2 string = getString(key);
 //            if(string==null) {
-//                string = new RedisString.RawString(values);
+//                string = new RedisString2.RawString(values);
 //                dict.put(key, string);
 //                return values.length;
 //            }
-//            if(!(string instanceof RedisString.RawString)) {
-//                string = new RedisString.RawString(string);
+//            if(!(string instanceof RedisString2.RawString)) {
+//                string = new RedisString2.RawString(string);
 //                dict.put(key, string);
 //            }
-//            return ((RedisString.RawString)string).append(values);
+//            return ((RedisString2.RawString)string).append(values);
 //        }
 //
 //
@@ -669,4 +649,4 @@ public class RedisDB implements Serializable {
 //            return zSet.size();
 //        }
 //    }
-}
+//}

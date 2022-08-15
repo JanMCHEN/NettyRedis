@@ -17,10 +17,10 @@ public class CommandGet implements RedisCommand {
 
     @Override
     public Object invoke(RedisClient client, byte[]... args) {
-        RedisObject res = client.getRedisCommand().get(RedisObject.valueOf(args[0]));
-        RedisDB db = client.getDb();
-        if(res==null) return null;
-        if(res instanceof RedisString) return res;
+//        RedisObject res = client.getRedisCommand().get(RedisObject.valueOf(args[0]));
+//        RedisDB db = client.getDb();
+//        if(res==null) return null;
+//        if(res instanceof RedisString) return res;
         throw RedisException.ERROR_TYPE;
     }
 }

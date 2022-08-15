@@ -38,9 +38,9 @@ public class RedisList implements RedisObject {
         return ((IntList) first).add(0, value);
     }
     public boolean addFirst(RedisObject value) {
-        if(value instanceof RedisString.RedisInt) {
-            return addFirst(((RedisString.RedisInt) value).get());
-        }
+//        if(value instanceof RedisString.RedisInt) {
+//            return addFirst(((RedisString.RedisInt) value).get());
+//        }
         contents.addFirst(value);
         length ++;
         return true;
@@ -62,9 +62,9 @@ public class RedisList implements RedisObject {
         return ((IntList) last).add(value);
     }
     public boolean addLast(RedisObject value) {
-        if(value instanceof RedisString.RedisInt) {
-            return addLast(((RedisString.RedisInt) value).get());
-        }
+//        if(value instanceof RedisString.RedisInt) {
+//            return addLast(((RedisString.RedisInt) value).get());
+//        }
         contents.addLast(value);
         length ++;
         return true;
@@ -82,7 +82,7 @@ public class RedisList implements RedisObject {
          if(((IntList) first).size()==0){
              contents.removeFirst();
          }
-         return new RedisString.RedisInt(l);
+         return RedisString.newString(l);
      }
      public RedisObject popLast() {
         length -- ;
@@ -97,7 +97,7 @@ public class RedisList implements RedisObject {
          if(((IntList) last).size()==0){
              contents.removeFirst();
          }
-         return new RedisString.RedisInt(l);
+         return RedisString.newString(l);
      }
     public RedisObject get(long index) {
         index = checkIndex(index);
@@ -105,20 +105,20 @@ public class RedisList implements RedisObject {
         if(index==0) {
             ans = contents.getFirst();
             if(ans instanceof IntList) {
-                ans = new RedisString.RedisInt(((IntList)ans).get(0));
+                ans = RedisString.newString(((IntList)ans).get(0));
             }
         }
         else if(index==length-1) {
             ans = contents.getLast();
             if(ans instanceof IntList) {
-                ans = new RedisString.RedisInt(((IntList)ans).get());
+                ans = RedisString.newString(((IntList)ans).get());
             }
         }
         else{
             for(RedisObject ele:contents) {
                 if(ele instanceof RedisList.IntList){
                     if(index < ((IntList) ele).size()) {
-                        ans = new RedisString.RedisInt(((IntList)ele).get((int) index));
+                        ans = RedisString.newString(((IntList)ele).get((int) index));
                     }
                     else {
                         index -= ((IntList) ele).size();
@@ -155,7 +155,7 @@ public class RedisList implements RedisObject {
                     if(cur>=stop) break;
                     if(cur++<start) continue;
 //                    res.add(new RedisObject(list.get(i)));
-                    res.add(new RedisString.RedisInt(list.get(i)));
+                    res.add(RedisString.newString(list.get(i)));
                 }
             }
             else {

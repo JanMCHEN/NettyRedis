@@ -3,6 +3,13 @@ package core.structure;
 import java.nio.charset.StandardCharsets;
 
 public class RedisIntString implements CharSequence{
+    public static RedisIntString build(CharSequence cs) {
+        long v = Long.parseLong(cs, 0, cs.length(), 10);
+        return new RedisIntString(v);
+    }
+    public RedisIntString(long v) {
+        value = v;
+    }
     private long value;
     @Override
     public int length() {
@@ -19,10 +26,15 @@ public class RedisIntString implements CharSequence{
         return Long.toString(value).subSequence(start, end);
     }
 
-    public long increase(long v) {
+    public long getAndIncrease(long v) {
         long old = value;
         value += v;
         return old;
+    }
+
+    public long increaseAndGet(long v) {
+        value += v;
+        return value;
     }
 
     public byte[] getBytes() {
