@@ -1,9 +1,12 @@
 package core;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 public class AOFCallback implements RedisCommandCallback{
     FileOutputStream aof;
@@ -27,6 +30,13 @@ public class AOFCallback implements RedisCommandCallback{
 
     public static void main(String[] args) throws IOException {
         AOFCallback callback = new AOFCallback();
-        callback.aof.write(1);
+        FileChannel channel = callback.aof.getChannel();
+        ByteBuf byteBuf = Unpooled.wrappedBuffer("aaa".getBytes());
+        System.out.println(byteBuf);
+        ByteBuffer buffer = byteBuf.internalNioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+        channel.write(buffer);
+        buffer = byteBuf.internalNioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+        channel.write(buffer);
+        System.out.println(byteBuf);
     }
 }

@@ -36,6 +36,7 @@ public class HandlerInit extends ChannelInitializer<SocketChannel> {
 
         ChannelPipeline pipeline = ch.pipeline();
         pipeline
+                .addLast("record", new RecordHandler())
                 .addLast("decode", new RedisDecoder(true))
                 .addLast("string-decode", new RedisBulkStringAggregator())
                 .addLast("array-decode", new RedisArrayAggregator());
