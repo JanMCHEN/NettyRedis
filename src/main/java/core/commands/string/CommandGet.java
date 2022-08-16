@@ -9,7 +9,7 @@ import core.RedisDB;
 public class CommandGet implements RedisCommand {
     @Override
     public int checkArgs(String... args) {
-        return args.length == 1? 0:-1;
+        return args.length == 2? 0:-1;
     }
 
     @Override

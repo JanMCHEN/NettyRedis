@@ -1,6 +1,6 @@
 package annotation;
 
-import core.DefaultCommandFactory;
+import core.DefaultRedisCommandHolder;
 import core.RedisCommand;
 import utils.PackageClassScanner;
 
@@ -10,12 +10,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Set;
 
 public class ClassPathCommandScanner {
-    private DefaultCommandFactory commandFactory;
+    private DefaultRedisCommandHolder commandFactory;
 
-    public void setCommandFactory(DefaultCommandFactory commandFactory) {
+    public void setCommandFactory(DefaultRedisCommandHolder commandFactory) {
         this.commandFactory = commandFactory;
     }
 
+    @SuppressWarnings("unchecked")
     public void scan(String... basePackages) {
         PackageClassScanner scanner = new PackageClassScanner();
         scanner.addFilter(new PackageClassScanner.AnnotationTypeFilter(Command.class));

@@ -1,6 +1,6 @@
 package core.handler;
 
-import core.CommandFactory;
+import core.RedisCommandHolder;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoop;
@@ -9,15 +9,14 @@ import io.netty.handler.codec.redis.RedisArrayAggregator;
 import io.netty.handler.codec.redis.RedisBulkStringAggregator;
 import io.netty.handler.codec.redis.RedisDecoder;
 import io.netty.handler.codec.redis.RedisEncoder;
-import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
 public class HandlerInit extends ChannelInitializer<SocketChannel> {
-    private CommandFactory commandFactory;
+    private RedisCommandHolder commandFactory;
     private EventLoop eventLoop;
 
     private LoggingHandler loggingHandler;
-    public void setCommandFactory(CommandFactory commandFactory) {
+    public void setCommandFactory(RedisCommandHolder commandFactory) {
         this.commandFactory = commandFactory;
     }
 
@@ -36,7 +35,6 @@ public class HandlerInit extends ChannelInitializer<SocketChannel> {
 
         ChannelPipeline pipeline = ch.pipeline();
         pipeline
-                .addLast("record", new RecordHandler())
                 .addLast("decode", new RedisDecoder(true))
                 .addLast("string-decode", new RedisBulkStringAggregator())
                 .addLast("array-decode", new RedisArrayAggregator());

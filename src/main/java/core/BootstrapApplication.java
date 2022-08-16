@@ -15,6 +15,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 public class BootstrapApplication {
@@ -69,8 +70,10 @@ public class BootstrapApplication {
     private EventLoop commandExecutor;
     private ServerBootstrap bootstrap;
 
-    private CommandFactory commands;
+    private RedisCommandHolder commands;
 
+
+    @SuppressWarnings("all")
     public static BootstrapApplication run(Class<?> cls, String... args) {
         BootstrapApplication application = new BootstrapApplication();
         CommandScan scan = cls.getAnnotation(CommandScan.class);
@@ -100,10 +103,15 @@ public class BootstrapApplication {
     }
 
     private void initCommands(){
-        commands = new DefaultCommandFactory();
+        commands = new DefaultRedisCommandHolder();
         ClassPathCommandScanner scanner = new ClassPathCommandScanner();
-        scanner.setCommandFactory((DefaultCommandFactory) commands);
+        scanner.setCommandFactory((DefaultRedisCommandHolder) commands);
         scanner.scan(basePackages);
+        try {
+            ((DefaultRedisCommandHolder) commands).addAround(new RedisAofAround("appendonly.aof"));
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void setProperties() {

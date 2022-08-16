@@ -1,6 +1,6 @@
 package core;
 
-public interface RedisCommand {
+public interface RedisCommand{
     default boolean isMultiProcess() {
         return false;
     }
@@ -20,7 +20,7 @@ public interface RedisCommand {
      * 执行命令
      * @param client    状态
      * @param args      参数数组
-     * @return          结果
+     * @return object   结果
      */
     Object invoke(RedisClient client, String ...args);
 }

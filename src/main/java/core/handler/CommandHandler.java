@@ -2,23 +2,25 @@ package core.handler;
 
 import core.*;
 import core.RedisMessageFactory;
-import core.exception.RedisException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoop;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.redis.*;
-import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class CommandHandler extends SimpleChannelInboundHandler<Object> {
-    private CommandFactory cmdFactory;
+    private static final Logger log = LoggerFactory.getLogger(CommandHandler.class);
+    private RedisCommandHolder cmdFactory;
     private RedisClient client;
     private EventLoop executor;
-    public void setCmdFactory(CommandFactory commands) {
+
+    public void setCmdFactory(RedisCommandHolder commands) {
         cmdFactory = commands;
     }
     public void setExecutor(EventLoop loop) {
@@ -38,18 +40,14 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) {
-        if(msg instanceof ArrayRedisMessage) {
-            Runnable task = commandParse(ctx, (ArrayRedisMessage) msg);
-            if(task!=null) {
-                executor.submit(task);
-            }
+        String[] args = resolveArgs(msg);
+        if (args.length==0) {
+            ctx.writeAndFlush(RedisMessageFactory.ERR);
+            return;
         }
-        else if(msg instanceof InlineCommandRedisMessage) {
-            ctx.writeAndFlush(msg);
-        }
-
-        else{
-            throw new RedisCodecException("不支持此命令");
+        Runnable task = commandParse(ctx, args);
+        if(task != null) {
+            executor.submit(task);
         }
     }
 
@@ -69,13 +67,13 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
         return null;
     }
 
-    public boolean checkArgs(ChannelHandlerContext ctx, RedisCommand cmd, String[]args, String command) {
+    public boolean checkArgs(ChannelHandlerContext ctx, RedisCommand cmd, String[]args) {
         int stat = cmd.checkArgs(args);
         switch (stat) {
             case 0:
                 return true;
             case -1:
-                ctx.writeAndFlush(RedisMessageFactory.errorCommandNumberMessage(command));
+                ctx.writeAndFlush(RedisMessageFactory.errorCommandNumberMessage(args[0]));
                 break;
             case -2:
                 ctx.writeAndFlush(RedisMessageFactory.ERR_SYNTAX);
@@ -89,27 +87,30 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
         return false;
     }
 
-    public Runnable commandParse(ChannelHandlerContext ctx, ArrayRedisMessage msg) {
-        List<RedisMessage> commands = msg.children();
-        int n = commands.size();
-        if(n==0) return null;
+    public String[] resolveArgs(Object msg) {
+        String[] args = new String[0];
+        if(msg instanceof ArrayRedisMessage) {
+            List<RedisMessage> content = ((ArrayRedisMessage) msg).children();
+            args = content.stream().map(this::msgToString).collect(Collectors.toList()).toArray(args);
+        } else if (msg instanceof InlineCommandRedisMessage) {
+            String content = ((InlineCommandRedisMessage) msg).content();
+            args = content.split(" ");
+        }
+        return args;
+    }
 
-        String cmdStr = msgToString(commands.get(0));
-        RedisCommand cmd = cmdFactory.getCommand(cmdStr);
+    public Runnable commandParse(ChannelHandlerContext ctx, String[] args) {
+        if(args.length==0) return null;
+        RedisCommand cmd = cmdFactory.getCommand(args[0]);
         // 命令不存在
         if(cmd==null) {
             client.setError();
-            ctx.writeAndFlush(RedisMessageFactory.unknownCommandMessage(cmdStr));
+            ctx.writeAndFlush(RedisMessageFactory.unknownCommandMessage(args[0]));
             return null;
-        }
-        String[] args = new String[n-1];
-
-        for(int i=1;i<n;++i) {
-            args[i-1] = msgToString(commands.get(i));
         }
 
         // 命令参数错误
-        if(!checkArgs(ctx, cmd, args, cmdStr)) {
+        if(!checkArgs(ctx, cmd, args)) {
             client.setError();
             return null;
         }
@@ -120,29 +121,12 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
             ctx.writeAndFlush(RedisMessageFactory.QUEUED);
             return null;
         }
-        AOFCallback callback = null;
-        try {
-            callback = new AOFCallback();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return new RedisCommandRunnable(cmd, args, callback, ctx, client);
-//        return () -> {
-//            Object res=null;
-//            try {
-//                res = cmd.invoke(client, args);
-//            }catch (RedisException e) {
-//                res = e.redisMessage;
-//            }
-//            catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//            if (res==null) res = RedisMessageFactory.NULL;
-//            ByteBuf cmdBuf = (ByteBuf) ctx.channel().attr(AttributeKey.valueOf("cmd")).get();
-//
-//
-//            ctx.writeAndFlush(res);
-//        };
+
+        return () -> {
+            Object res = cmdFactory.call(cmd, client, args);
+            if (res==null) res = RedisMessageFactory.NULL;
+            ctx.writeAndFlush(res);
+        };
     }
 
     public RedisClient getClient(){
@@ -151,8 +135,10 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        log.error("closed because:", cause);
         executor.submit(()->client.close());
         ctx.close();
     }
+
 }
 
