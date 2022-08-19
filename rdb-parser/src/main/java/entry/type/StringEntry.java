@@ -4,6 +4,7 @@ import entry.Entry;
 import entry.LengthEntry;
 import exception.NotSupportedException;
 import util.InputStreamUtils;
+import util.LZF_Utils;
 import util.NoCopyCharSequence;
 
 import java.io.IOException;
@@ -74,11 +75,11 @@ public class StringEntry implements Entry {
     }
 
     static class LZFStringEntry implements CharSequence, Entry {
-        private LengthEntry cLen, size;
+        private LengthEntry size;
         byte[] value;
         @Override
         public int parse(InputStream in) throws IOException {
-            cLen = new LengthEntry(true);
+            LengthEntry cLen = new LengthEntry(true);
             cLen.parse(in);
             size = new LengthEntry(true);
             size.parse(in);
@@ -104,7 +105,7 @@ public class StringEntry implements Entry {
 
         @Override
         public String toString() {
-            return super.toString();
+            return new String(LZF_Utils.lzfDecode(value, size.getValue()));
         }
     }
 }
