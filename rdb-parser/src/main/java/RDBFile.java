@@ -3,12 +3,15 @@ import entry.RDBFileEntry;
 import exception.RDBFileException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.CRC64Utils;
+import util.InputStreamUtils;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 public class RDBFile implements AutoCloseable{
     private static final Logger log = LoggerFactory.getLogger(RDBFile.class);
@@ -16,7 +19,12 @@ public class RDBFile implements AutoCloseable{
     private InputStream rdb;
     private RDBFileEntry entry;
 
+    private boolean crc64Check = true;
+
     public RDBFile(InputStream in) {
+        if (crc64Check) {
+            in = InputStreamUtils.CRC64InputStreamWrapper(in);
+        }
         rdb = in;
         entry = new RDBFileEntry();
     }

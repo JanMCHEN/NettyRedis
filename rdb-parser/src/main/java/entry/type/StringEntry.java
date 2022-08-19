@@ -73,7 +73,7 @@ public class StringEntry implements Entry {
         }
     }
 
-    static class LZFStringEntry extends StringEntry implements CharSequence {
+    static class LZFStringEntry implements CharSequence, Entry {
         private LengthEntry cLen, size;
         byte[] value;
         @Override

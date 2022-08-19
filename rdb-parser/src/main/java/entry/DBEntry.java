@@ -34,8 +34,9 @@ public class DBEntry implements Entry {
         if (op == HASH_SIZE_OP) {
             hashSizeEntry = new HashSizeEntry();
             hashSizeEntry.parse(in);
-            op = InputStreamUtils.readWithoutEOF(in);
+            op = -1;
         }
+
         entries = new ArrayList<>();
 
         // key-value
@@ -45,10 +46,9 @@ public class DBEntry implements Entry {
                 return op;
             }
             KeyValueEntry keyValueEntry = new KeyValueEntry();
+            keyValueEntry.setInitOp(op);
             op = keyValueEntry.parse(in);
-            if (op == -1) {
-                op = InputStreamUtils.readWithoutEOF(in);
-            }
+            if(op == -1) entries.add(keyValueEntry);
         }
     }
 }

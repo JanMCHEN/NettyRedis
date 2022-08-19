@@ -1,5 +1,7 @@
 package entry;
 
+import util.InputStreamUtils;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -10,17 +12,15 @@ import java.io.InputStream;
  * $length-encoded-int         # 相应带失效时间的Hash表大小
  */
 public class HashSizeEntry implements Entry {
-    final static int OP = 0xFB;
-
     private LengthEntry hashSize;
     private LengthEntry expireSize;
 
     @Override
     public int parse(InputStream in) throws IOException {
-        hashSize = new LengthEntry();
+        hashSize = new LengthEntry(true);
         hashSize.parse(in);
 
-        expireSize = new LengthEntry();
+        expireSize = new LengthEntry(true);
         expireSize.parse(in);
         return -1;
     }

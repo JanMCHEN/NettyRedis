@@ -19,8 +19,8 @@ public class LengthEntry implements Entry{
 
     public LengthEntry(boolean isInt) {
         if(isInt) {
-            // 指定必须为int类型的长度
-            type = 3;
+            // 指定必须为int类型
+            type = -1;
         }
     }
     int value, type;
@@ -29,7 +29,7 @@ public class LengthEntry implements Entry{
     public int parse(InputStream in) throws IOException {
         int b = InputStreamUtils.readWithoutEOF(in);
         int code = b >> 6;
-        if (type > 0 && type != code) {
+        if (type < -1 && code==3) {
             throw new RDBFileException("not a integer");
         }
         type = code;
@@ -39,7 +39,7 @@ public class LengthEntry implements Entry{
         } else if (type == 1) {
             value = InputStreamUtils.readWithoutEOF(in)<<8 | b ;     // 14 bit
         } else if (type == 2) {
-            value = InputStreamUtils.readInt(in);   // 4 bit
+            value = InputStreamUtils.readInt(in);   // 32 bit
         }else {
             value = b;                     // 6 bit
         }

@@ -25,9 +25,18 @@ public class KeyValueEntry implements Entry{
     private Entry valueEntry;
     private StringEntry keyEntry;
 
+    /**
+     * it's a bad idea, this entry I can't deal with better
+     */
+    public int initOp = -1;
+
+    public void setInitOp(int op) {
+        initOp = op;
+    }
+
     @Override
     public int parse(InputStream in) throws IOException {
-        int op = InputStreamUtils.readWithoutEOF(in);
+        int op = initOp > -1 ? initOp: InputStreamUtils.readWithoutEOF(in);
         expireEntry = ExpireEntry.getExpireEntry(op);
         if (expireEntry != null) {
             expireEntry.parse(in);

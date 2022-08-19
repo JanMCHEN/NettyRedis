@@ -1,5 +1,9 @@
 package entry;
 
+import exception.RDBFileException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import util.CRC64InputStream;
 import util.InputStreamUtils;
 
 import java.io.IOException;
@@ -8,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RDBFileEntry implements Entry{
+    private static final Logger log = LoggerFactory.getLogger(RDBFileEntry.class);
     HeaderEntry headerEntry;
     List<MetaDataEntry> metaDataEntries;
 
@@ -35,15 +40,21 @@ public class RDBFileEntry implements Entry{
         }
 
         if (op == EOF) {
-            // end
+            // check
+            if (in instanceof CRC64InputStream) {
+                ((CRC64InputStream) in).setCrc_ok(false);
+                long crc64 = ((CRC64InputStream) in).getCrcSum();
+                long expected = InputStreamUtils.readLong(in);
+                if (expected == 0) {
+                    log.warn("rdb saved with no crc-sum");
+                }
+                else if (crc64 != expected) throw new RDBFileException("crc check wrong");
+            }
+            else {
+                InputStreamUtils.readLong(in);
+            }
         }
-
-        else {
-            System.out.println(Integer.toHexString(op));
-        }
-
         return -1;
-
     }
 
     @Override
