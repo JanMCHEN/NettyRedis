@@ -3,7 +3,7 @@ package entry;
 import exception.RDBFileException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import util.CRC64InputStream;
+import io.CRC64InputStream;
 import util.InputStreamUtils;
 
 import java.io.IOException;
@@ -11,10 +11,14 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * rdb7
+ * <len><ziplist><ziplist>...
+ */
 public class RDBFileEntry implements Entry{
     private static final Logger log = LoggerFactory.getLogger(RDBFileEntry.class);
     HeaderEntry headerEntry;
-    List<MetaDataEntry> metaDataEntries;
+    List<HashNodeEntry> auxEntries;
 
     List<DBEntry> dataEntries;
 
@@ -23,17 +27,17 @@ public class RDBFileEntry implements Entry{
         headerEntry = new HeaderEntry();
         headerEntry.parse(in);
         int op = InputStreamUtils.readWithoutEOF(in);
-        metaDataEntries = new ArrayList<>();
+        auxEntries = new ArrayList<>();
 
-        while (op == META_DATA_OP) {
-            MetaDataEntry meta = new MetaDataEntry();
-            metaDataEntries.add(meta);
+        while (op == AUX) {
+            HashNodeEntry meta = new HashNodeEntry();
+            auxEntries.add(meta);
             meta.parse(in);
             op = InputStreamUtils.readWithoutEOF(in);
         }
 
         dataEntries = new ArrayList<>();
-        while (op == DB_SELECT_OP) {
+        while (op == SELECT_DB) {
             DBEntry dbEntry = new DBEntry();
             op = dbEntry.parse(in);
             dataEntries.add(dbEntry);
@@ -61,7 +65,7 @@ public class RDBFileEntry implements Entry{
     public String toString() {
         return "RDBFileEntry{" +
                 "headerEntry=" + headerEntry +
-                ", metaDataEntries=" + metaDataEntries +
+                ", metaDataEntries=" + auxEntries +
                 ", dataEntries=" + dataEntries +
                 '}';
     }

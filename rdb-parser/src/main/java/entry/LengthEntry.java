@@ -29,7 +29,7 @@ public class LengthEntry implements Entry{
     public int parse(InputStream in) throws IOException {
         int b = InputStreamUtils.readWithoutEOF(in);
         int code = b >> 6;
-        if (type < -1 && code==3) {
+        if (type < 0 && code==3) {
             throw new RDBFileException("not a integer");
         }
         type = code;
@@ -37,7 +37,7 @@ public class LengthEntry implements Entry{
         if (type == 0) {
             value = b;                       // 6 bit
         } else if (type == 1) {
-            value = InputStreamUtils.readWithoutEOF(in)<<8 | b ;     // 14 bit
+            value = InputStreamUtils.readWithoutEOF(in) | b << 8 ;     // 14 bit
         } else if (type == 2) {
             value = InputStreamUtils.readInt(in);   // 32 bit
         }else {

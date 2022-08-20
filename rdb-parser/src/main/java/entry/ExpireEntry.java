@@ -16,8 +16,8 @@ public abstract class ExpireEntry implements Entry{
     }
 
     public static ExpireEntry getExpireEntry(int op) {
-        if (op == EXPIRE_MILL_OP) return new ExpireMillSecondEntry();
-        if (op == EXPIRE_SECOND_OP) return new ExpireSecondEntry();
+        if (op == EXPIRE_TIME_MS) return new ExpireMillSecondEntry();
+        if (op == EXPIRE_TIME) return new ExpireSecondEntry();
         return null;
     }
 

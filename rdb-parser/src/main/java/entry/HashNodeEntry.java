@@ -5,9 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * FA 开头的附加数据
+ * hash 中的节点
+ * key:value
  */
-public class MetaDataEntry implements Entry{
+public class HashNodeEntry implements Entry{
     private StringEntry key, value;
 
     @Override
@@ -21,9 +22,8 @@ public class MetaDataEntry implements Entry{
 
     @Override
     public String toString() {
-        return "MetaDataEntry{" +
-                "key=" + key +
+        return "(key=" + key +
                 ", value=" + value +
-                '}';
+                ')';
     }
 }

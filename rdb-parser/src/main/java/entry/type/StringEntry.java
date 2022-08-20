@@ -5,14 +5,14 @@ import entry.LengthEntry;
 import exception.NotSupportedException;
 import util.InputStreamUtils;
 import util.LZF_Utils;
-import util.NoCopyCharSequence;
+import io.NoCopyCharSequence;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 public class StringEntry implements Entry {
-    private LengthEntry length;
-    private CharSequence cs;
+    protected LengthEntry length;
+    protected CharSequence cs;
 
     public LengthEntry getLength() {
         return length;
@@ -43,7 +43,7 @@ public class StringEntry implements Entry {
                 value = 1 << value;  // 8, 16, 32
                 cs = new NoCopyCharSequence(InputStreamUtils.readNBytes(value, in));
             }else {
-                // Compressed Strings
+                // Compressed Strings type=3 && value=3
                 LZFStringEntry lzf = new LZFStringEntry();
                 lzf.parse(in);
                 cs = lzf;
@@ -52,22 +52,40 @@ public class StringEntry implements Entry {
         return -1;
     }
 
+    public boolean isLzf() {
+        return cs instanceof LZFStringEntry;
+    }
+
+    public byte[] getBytes() {
+        if (cs instanceof LZFStringEntry) {
+            return ((LZFStringEntry) cs).getBytes();
+        }
+        if (cs instanceof NoCopyCharSequence) {
+            return ((NoCopyCharSequence) cs).getBytes();
+        }
+        byte[] bytes = new byte[cs.length()];
+        for (int i=0;i<bytes.length;++i) {
+            bytes[i] = (byte) cs.charAt(i);
+        }
+        return bytes;
+    }
+
     @Override
     public String toString() {
         if (length.getType() < 3) {
-            return "string(" + cs + ")";
+            return cs.toString();
         }
         if(length.getValue() < 3) {
             int sz = length.getValue();
-            long value = cs.charAt(0);
+            long value = cs.charAt(0) ;
             if(sz>=1) {
                 value |= (cs.charAt(1) << 8);
             }
             if(sz == 2) {
-                value |= ((long) cs.charAt(2) <<16) | ((long) cs.charAt(2) << 24);
+                value |= ((long) cs.charAt(2) <<16) | ((long) cs.charAt(3) << 24);
             }
 
-            return "int(" + value + ")";
+            return String.valueOf(value);
         }
         else {
             return cs.toString();
@@ -103,9 +121,13 @@ public class StringEntry implements Entry {
             throw new NotSupportedException("not supported subSequence");
         }
 
+        public byte[] getBytes() {
+            return LZF_Utils.lzfDecode(value, size.getValue());
+        }
+
         @Override
         public String toString() {
-            return new String(LZF_Utils.lzfDecode(value, size.getValue()));
+            return new String(getBytes());
         }
     }
 }

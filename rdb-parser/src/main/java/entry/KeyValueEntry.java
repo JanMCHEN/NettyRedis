@@ -1,7 +1,6 @@
 package entry;
 
-import entry.type.ListEntry;
-import entry.type.StringEntry;
+import entry.type.*;
 import exception.RDBFileException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,12 +12,24 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * 读取数据库键值
+ */
 public class KeyValueEntry implements Entry{
     private static final Logger log = LoggerFactory.getLogger(KeyValueEntry.class);
     private final static Map<Integer, Supplier<Entry>> typeEntries = new HashMap<>(16, 1.f);
     static {
-        typeEntries.put(0, StringEntry::new);
-        typeEntries.put(1, ListEntry::new);
+        typeEntries.put(STRING_TYPE, StringEntry::new);
+        typeEntries.put(LIST_TYPE, ListEntry::new);
+        typeEntries.put(SET_TYPE, SetEntry::new);
+        typeEntries.put(ZSET_TYPE, ZsetEntry::new);
+        typeEntries.put(HASH_TYPE, HashEntry::new);
+        typeEntries.put(ZIP_MAP_TYPE, ZipMapEntry::new);
+        typeEntries.put(ZIP_LIST_TYPE, ZipListEntry::new);
+        typeEntries.put(INT_SET_TYPE, IntSetEntry::new);
+        typeEntries.put(ZSET_WITH_ZIP_LIST, ZsetWithZipListEntry::new);
+        typeEntries.put(HASH_WITH_ZIP_LIST, HashWithZipList::new);
+        typeEntries.put(LIST_WITH_QUICK_LIST, QuickListEntry::new);
 //        typeEntries.put()
     }
     private ExpireEntry expireEntry;
@@ -43,19 +54,28 @@ public class KeyValueEntry implements Entry{
             op = InputStreamUtils.readWithoutEOF(in);
         }
 
-        if (expireEntry==null && (op==EOF)||(op==DB_SELECT_OP)) {
+        if (expireEntry==null && (op==EOF)||(op== SELECT_DB)) {
             log.warn("empty key-value-entry");
             return op;
         }
 
         Supplier<Entry> entrySupplier = typeEntries.get(op);
         if(entrySupplier==null) {
-            throw new RDBFileException("cant parse type: "+ Integer.toHexString(op));
+            throw new RDBFileException("cant parse type: 0x"+ Integer.toHexString(op));
         }
         valueEntry = entrySupplier.get();
         keyEntry = new StringEntry();
         keyEntry.parse(in);
 
         return valueEntry.parse(in);
+    }
+
+    @Override
+    public String toString() {
+        return "KeyValueEntry{" +
+                "expireEntry=" + expireEntry +
+                ", keyEntry=" + keyEntry +
+                ", valueEntry=" + valueEntry +
+                '}';
     }
 }

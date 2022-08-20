@@ -2,7 +2,7 @@ package entry;
 
 import util.InputStreamUtils;
 import exception.RDBFileException;
-import util.NoCopyCharSequence;
+import io.NoCopyCharSequence;
 
 import java.io.IOException;
 import java.io.InputStream;

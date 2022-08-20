@@ -1,17 +1,11 @@
-import entry.MetaDataEntry;
 import entry.RDBFileEntry;
-import exception.RDBFileException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import util.CRC64Utils;
 import util.InputStreamUtils;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 
 public class RDBFile implements AutoCloseable{
     private static final Logger log = LoggerFactory.getLogger(RDBFile.class);

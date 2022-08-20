@@ -1,4 +1,4 @@
-package util;
+package io;
 
 /**
  * 减少byte的复制
@@ -17,7 +17,7 @@ public class NoCopyCharSequence implements CharSequence {
 
     @Override
     public char charAt(int index) {
-        return (char) value[index];
+        return (char) (value[index] & 0xff);
     }
 
     @Override
@@ -30,4 +30,7 @@ public class NoCopyCharSequence implements CharSequence {
         return new String(value);
     }
 
+    public byte[] getBytes() {
+        return value;
+    }
 }

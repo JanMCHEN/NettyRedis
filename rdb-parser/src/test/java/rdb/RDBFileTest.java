@@ -1,7 +1,7 @@
 package rdb;
 
 import org.junit.Test;
-import util.CRC64InputStream;
+import io.CRC64InputStream;
 import util.CRC64Utils;
 import util.InputStreamUtils;
 

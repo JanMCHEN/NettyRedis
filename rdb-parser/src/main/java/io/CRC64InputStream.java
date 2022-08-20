@@ -1,4 +1,6 @@
-package util;
+package io;
+
+import util.CRC64Utils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,7 +11,7 @@ public class CRC64InputStream extends InputStream {
 
     boolean crc_ok = true;
 
-    CRC64InputStream(InputStream in) {
+    public CRC64InputStream(InputStream in) {
         delegate = in;
     }
 

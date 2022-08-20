@@ -1,6 +1,7 @@
 package util;
 
 import exception.RDBFileException;
+import io.CRC64InputStream;
 
 import java.io.IOException;
 import java.io.InputStream;

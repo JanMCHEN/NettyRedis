@@ -31,7 +31,7 @@ public class DBEntry implements Entry {
 
         int op = InputStreamUtils.readWithoutEOF(in);
 
-        if (op == HASH_SIZE_OP) {
+        if (op == RESIZE_DB) {
             hashSizeEntry = new HashSizeEntry();
             hashSizeEntry.parse(in);
             op = -1;
@@ -41,7 +41,7 @@ public class DBEntry implements Entry {
 
         // key-value
         for(;;) {
-            if (op == DB_SELECT_OP || op == EOF) {
+            if (op == SELECT_DB || op == EOF) {
                 // next db or end
                 return op;
             }
@@ -50,5 +50,14 @@ public class DBEntry implements Entry {
             op = keyValueEntry.parse(in);
             if(op == -1) entries.add(keyValueEntry);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "DBEntry{" +
+                "dbNum=" + dbNum +
+                ", hashSizeEntry=" + hashSizeEntry +
+                ", entries=" + entries +
+                '}';
     }
 }

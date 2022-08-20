@@ -27,7 +27,7 @@ public class ListEntry implements Entry {
 
     @Override
     public String toString() {
-        return "ListEntry{" +
+        return getClass().getSimpleName() + "{" +
                 "entries=" + entries +
                 '}';
     }
