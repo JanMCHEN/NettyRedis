@@ -13,16 +13,18 @@ public class RedisDB {
     private final Map<String, Long> expires;
 
     // 因watch而被监视的键
-    private RedisDict<String, List<RedisClient>> watchedKeys;
+    private Map<String, List<RedisClient>> watchedKeys;
     // 被阻塞的键
-    private RedisDict<String, List<RedisClient>> blockedKeys;
+    private Map<String, List<RedisClient>> blockedKeys;
 
     // 修改次数
     private int modCount;
 
     public RedisDB() {
-        this.dict = new HashMap<>();
-        this.expires = new HashMap<>();
+        dict = new HashMap<>();
+        expires = new HashMap<>();
+        watchedKeys = new HashMap<>();
+        blockedKeys = new HashMap<>();
     }
 
     /**
@@ -155,6 +157,4 @@ public class RedisDB {
         dict.clear();
         expires.clear();
     }
-
-
 }

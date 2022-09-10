@@ -30,6 +30,9 @@ public class RedisClient {
     private final List<CommandMetaData> commands = new LinkedList<>();
     private final HashSet<String> watchedKeys = new HashSet<>();
     private RedisDB db;
+
+    private RedisDBFactory dbFactory;
+
     private final ChannelHandlerContext ctx;
 
     // blocked
@@ -40,20 +43,17 @@ public class RedisClient {
 
     public RedisClient(ChannelHandlerContext ctx) {
         this.ctx = ctx;
-//        db = RedisDB.getDB(0);
     }
     public RedisDB getDb() {
         return db;
     }
     public void setDb(int i) {
-        if(i>=0 && i < RedisDB2.dbs.length) {
-//            db = RedisDB.getDB(i);
-        }
-        else {
-            throw new RedisException(RedisMessageFactory.ERR_SEL);
-        }
+        db = dbFactory.getDB(i);
     }
 
+    public void setDbFactory(RedisDBFactory dbFactory) {
+        this.dbFactory = dbFactory;
+    }
 
     public boolean isMulti() {
         return (state & 1) == 1;

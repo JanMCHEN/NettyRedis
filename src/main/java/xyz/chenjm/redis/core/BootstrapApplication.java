@@ -78,6 +78,8 @@ public class BootstrapApplication {
 
     private RedisCommandHolder commands;
 
+    private RedisDBFactory dbFactory;
+
 
     @SuppressWarnings("all")
     public static BootstrapApplication run(Class<?> cls, String... args) {
@@ -101,11 +103,7 @@ public class BootstrapApplication {
     }
 
     private void initDbs() {
-        try {
-            RedisDB2.init(dbs);
-        } catch (IOException | ClassNotFoundException ignored) {
-
-        }
+        dbFactory = RedisDBFactory.build(dbs);
     }
 
     private void initCommands(){
@@ -150,6 +148,7 @@ public class BootstrapApplication {
             HandlerInit childHandler = new HandlerInit();
             childHandler.setCommandFactory(commands);
             childHandler.setEventLoop(commandExecutor);
+            childHandler.setDbFactory(dbFactory);
             String debug = source.getProperty("debug");
             if(Boolean.parseBoolean(debug)) {
                 childHandler.setLoggingHandler(new LoggingHandler(LogLevel.DEBUG));

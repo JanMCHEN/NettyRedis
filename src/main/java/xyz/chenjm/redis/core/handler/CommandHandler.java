@@ -3,6 +3,7 @@ package xyz.chenjm.redis.core.handler;
 import xyz.chenjm.redis.core.RedisClient;
 import xyz.chenjm.redis.command.RedisCommand;
 import xyz.chenjm.redis.command.RedisCommandHolder;
+import xyz.chenjm.redis.core.RedisDBFactory;
 import xyz.chenjm.redis.core.RedisMessageFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -13,12 +14,15 @@ import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class CommandHandler extends SimpleChannelInboundHandler<Object> {
     private static final Logger log = LoggerFactory.getLogger(CommandHandler.class);
     private RedisCommandHolder cmdFactory;
+
+    private RedisDBFactory dbFactory;
     private RedisClient client;
     private EventLoop executor;
 
@@ -28,9 +32,16 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
     public void setExecutor(EventLoop loop) {
         executor = loop;
     }
+
+    public void setDbFactory(RedisDBFactory dbFactory) {
+        this.dbFactory = dbFactory;
+    }
+
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         client = new RedisClient(ctx);
+        client.setDbFactory(dbFactory);
+        client.setDb(0);
         super.channelActive(ctx);
     }
 
@@ -125,8 +136,15 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         return () -> {
-            Object res = cmdFactory.call(cmd, client, args);
-            if (res==null) res = RedisMessageFactory.NULL;
+            Object res;
+            try {
+                res = cmdFactory.call(cmd, client, args);
+            }catch (RuntimeException e) {
+                log.error("execute wrong:{}", Arrays.toString(args), e);
+                res = RedisMessageFactory.ERR;
+            }
+            if (res==null)
+                res = RedisMessageFactory.NULL;
             ctx.writeAndFlush(res);
         };
     }
@@ -137,7 +155,7 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("closed because:", cause);
+        log.error("closed because:{}", cause.getMessage());
         executor.submit(()->client.close());
         ctx.close();
     }

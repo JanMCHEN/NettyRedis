@@ -10,12 +10,13 @@ import io.netty.handler.codec.redis.RedisBulkStringAggregator;
 import io.netty.handler.codec.redis.RedisDecoder;
 import io.netty.handler.codec.redis.RedisEncoder;
 import io.netty.handler.logging.LoggingHandler;
+import xyz.chenjm.redis.core.RedisDBFactory;
 
 public class HandlerInit extends ChannelInitializer<SocketChannel> {
     private RedisCommandHolder commandFactory;
     private EventLoop eventLoop;
-
     private LoggingHandler loggingHandler;
+    private RedisDBFactory dbFactory;
     public void setCommandFactory(RedisCommandHolder commandFactory) {
         this.commandFactory = commandFactory;
     }
@@ -27,11 +28,16 @@ public class HandlerInit extends ChannelInitializer<SocketChannel> {
         this.loggingHandler = loggingHandler;
     }
 
+    public void setDbFactory(RedisDBFactory dbFactory) {
+        this.dbFactory = dbFactory;
+    }
+
     @Override
     protected void initChannel(SocketChannel ch) {
         CommandHandler cmdHandler = new CommandHandler();
         cmdHandler.setExecutor(eventLoop);
         cmdHandler.setCmdFactory(commandFactory);
+        cmdHandler.setDbFactory(dbFactory);
 
         ChannelPipeline pipeline = ch.pipeline();
         pipeline
