@@ -1,4 +1,4 @@
-import core.structure.RedisDict;
+import xyz.chenjm.redis.core.structure.RedisDict;
 import org.junit.Test;
 
 import java.util.HashMap;

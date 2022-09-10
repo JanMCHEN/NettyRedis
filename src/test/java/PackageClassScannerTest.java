@@ -1,5 +1,5 @@
 import org.junit.Test;
-import utils.PackageClassScanner;
+import xyz.chenjm.redis.utils.PackageClassScanner;
 
 public class PackageClassScannerTest {
 

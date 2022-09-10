@@ -1,6 +1,6 @@
 package SerializTest;
 
-import core.structure.SkipList;
+import xyz.chenjm.redis.core.structure.SkipList;
 import org.junit.Test;
 
 import java.util.Random;
