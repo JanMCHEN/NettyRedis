@@ -9,11 +9,26 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class RedisAofAround implements RedisCommandAround {
-    public final static byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    public final static byte[] CRLF = "\r\n".getBytes(StandardCharsets.US_ASCII);
     FileOutputStream aof;
+    int dbIndex = -1;
 
     public RedisAofAround(String aofName) throws FileNotFoundException {
         aof = new ByteBufFileOutput(aofName);
+    }
+
+    /**
+     * 切换数据库时需要追加select 命令
+     * @param client
+     * @param args
+     */
+    @Override
+    public void before(RedisClient client, String... args) {
+        int i = client.getDbIndex();
+        if (i != dbIndex) {
+            write("select", String.valueOf(i));
+            dbIndex = i;
+        }
     }
 
     public RedisAofAround(FileOutputStream fos){
@@ -32,10 +47,10 @@ public class RedisAofAround implements RedisCommandAround {
     }
 
 
-    private void write(String[] args) {
+    private void write(String... args) {
         try {
             aof.write('*');
-            aof.write(Long.toString(args.length).getBytes(StandardCharsets.UTF_8));
+            aof.write(Long.toString(args.length).getBytes(StandardCharsets.US_ASCII));
             aof.write(CRLF);
             for (String arg : args) {
                 write(arg);
@@ -46,9 +61,9 @@ public class RedisAofAround implements RedisCommandAround {
     }
 
     private void write(String arg) throws IOException {
-        byte[] bytes = arg.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = arg.getBytes(StandardCharsets.US_ASCII);
         aof.write('$');
-        aof.write(Long.toString(bytes.length).getBytes(StandardCharsets.UTF_8));
+        aof.write(Long.toString(bytes.length).getBytes(StandardCharsets.US_ASCII));
         aof.write(CRLF);
         aof.write(bytes);
         aof.write(CRLF);

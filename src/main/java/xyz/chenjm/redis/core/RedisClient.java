@@ -29,7 +29,7 @@ public class RedisClient {
     private byte state = 0;
     private final List<CommandMetaData> commands = new LinkedList<>();
     private final HashSet<String> watchedKeys = new HashSet<>();
-    private RedisDB db;
+    private int dbIndex = 0;
 
     private RedisDBFactory dbFactory;
 
@@ -45,10 +45,14 @@ public class RedisClient {
         this.ctx = ctx;
     }
     public RedisDB getDb() {
-        return db;
+        return dbFactory.getDB(dbIndex);
     }
-    public void setDb(int i) {
-        db = dbFactory.getDB(i);
+
+    public int getDbIndex() {
+        return dbIndex;
+    }
+    public void selectDb(int i) {
+        dbIndex = i;
     }
 
     public void setDbFactory(RedisDBFactory dbFactory) {
@@ -95,6 +99,7 @@ public class RedisClient {
 
     public Object watch(String...keys) {
         if(!isNormal()) return RedisMessageFactory.ERR_WATCH;
+        RedisDB db = getDb();
         for(String key:keys) {
             watchedKeys.add(key);
             db.watchAdd(this, key);
@@ -154,6 +159,7 @@ public class RedisClient {
         state &= 8;
         commands.clear();
         Iterator<String> iterator = watchedKeys.iterator();
+        RedisDB db = getDb();
         while(iterator.hasNext()) {
             String key = iterator.next();
             db.watchRemove(this, key);
@@ -167,6 +173,7 @@ public class RedisClient {
         setBlocked();
         this.timeout = timeout==0? timeout: System.currentTimeMillis() + timeout;
         this.target = target;
+        RedisDB db = getDb();
         for(String key:keys) {
             blockedKeys.add(key);
             db.blockedAdd(this, key);
@@ -180,6 +187,7 @@ public class RedisClient {
         timeout = -1;
         target = null;
         Iterator<String> iterator = blockedKeys.iterator();
+        RedisDB db = getDb();
         if(!checkDb) {
             blockedKeys.clear();
             return;

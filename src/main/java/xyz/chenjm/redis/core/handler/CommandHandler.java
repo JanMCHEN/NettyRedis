@@ -41,7 +41,6 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         client = new RedisClient(ctx);
         client.setDbFactory(dbFactory);
-        client.setDb(0);
         super.channelActive(ctx);
     }
 
@@ -155,7 +154,7 @@ public class CommandHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("closed because:{}", cause.getMessage());
+        log.error("closed: ", cause);
         executor.submit(()->client.close());
         ctx.close();
     }
