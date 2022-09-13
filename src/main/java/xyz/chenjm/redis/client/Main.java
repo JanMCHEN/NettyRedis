@@ -1,39 +1,44 @@
 package xyz.chenjm.redis.client;
 
-import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.redis.RedisDecoder;
-import io.netty.handler.codec.redis.RedisEncoder;
+import java.util.Map;
+import java.util.concurrent.*;
 
-import java.nio.charset.StandardCharsets;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        NioEventLoopGroup executors = new NioEventLoopGroup(1);
-        Bootstrap bootstrap = new Bootstrap();
+        RedisClient client = new RedisClient("localhost", 7000);
+        client.connect();
+        int threads = 5000;
 
-        Channel channel = bootstrap
-                .group(executors)
-                .channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline()
-                                .addLast(new RedisEncoder())
-                                .addLast(new ClientHandler());
+        ExecutorService service = Executors.newFixedThreadPool(threads);
+        CountDownLatch countDownLatch = new CountDownLatch(threads);
+
+        Map<RedisConnection, Thread> map = new ConcurrentHashMap<>();
+
+        for (int i=0;i<threads;++i) {
+            service.submit(()->{
+                RedisConnection connection = client.newConnection();
+                if (map.containsKey(connection)) {
+                    System.out.println(connection);
+                }
+                map.put(connection, Thread.currentThread());
+                for (int j=0;j<5;++j) {
+                    try {
+                        Object x = connection.sendCommand("get", "test");
+                        System.out.println(x);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e);
                     }
-                }).connect("localhost", 7000).sync().channel();
-
-        channel.writeAndFlush(new String[]{"get", "a"});
-
-        channel.read();
-
-        channel.closeFuture().sync();
-
-        executors.shutdownGracefully();
+                }
+                countDownLatch.countDown();
+            });
+        }
+        boolean await = countDownLatch.await(30, TimeUnit.SECONDS);
+        if (await) {
+            client.close();
+        }
+        System.out.println(countDownLatch);
+        service.shutdown();
     }
 }
