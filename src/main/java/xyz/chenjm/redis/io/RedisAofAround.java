@@ -24,7 +24,7 @@ public class RedisAofAround implements RedisCommandAround {
      */
     @Override
     public void before(RedisClient client, String... args) {
-        int i = client.getDbIndex();
+        int i = client.selectDb();
         if (i != dbIndex) {
             write("select", String.valueOf(i));
             dbIndex = i;

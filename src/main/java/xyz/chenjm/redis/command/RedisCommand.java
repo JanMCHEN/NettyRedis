@@ -3,10 +3,6 @@ package xyz.chenjm.redis.command;
 import xyz.chenjm.redis.core.RedisClient;
 
 public interface RedisCommand{
-    default boolean isMultiProcess() {
-        return false;
-    }
-
     /**
      * 参数检查
      * @param args 参数数组

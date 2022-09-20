@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 
 public class DefaultRedisCommandHolder implements RedisCommandHolder {
+
+
     private final Map<String, RedisCommand> commandMap = new RedisDict<>();
     List<RedisCommandAround> around = new ArrayList<>();
     @Override
@@ -19,6 +21,7 @@ public class DefaultRedisCommandHolder implements RedisCommandHolder {
     }
 
     public void addCommand(String key, RedisCommand command) {
+        Class<? extends RedisCommand> cls = command.getClass();
         commandMap.put(key.toUpperCase(), command);
     }
 

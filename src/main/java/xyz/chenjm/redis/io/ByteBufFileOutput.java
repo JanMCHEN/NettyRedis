@@ -7,7 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-class ByteBufFileOutput extends FileOutputStream {
+public class ByteBufFileOutput extends FileOutputStream {
     ByteBuf buf;
 
     public ByteBufFileOutput(String name) throws FileNotFoundException {
@@ -16,7 +16,7 @@ class ByteBufFileOutput extends FileOutputStream {
     }
 
     @Override
-    public void write(int b) throws IOException {
+    public synchronized void write(int b) throws IOException {
         if (!buf.isWritable()) {
             flush();
         }
@@ -24,7 +24,7 @@ class ByteBufFileOutput extends FileOutputStream {
     }
 
     @Override
-    public void write(byte[] b) throws IOException {
+    public synchronized void write(byte[] b) throws IOException {
         if (!buf.isWritable()) {
             flush();
         }
@@ -32,7 +32,7 @@ class ByteBufFileOutput extends FileOutputStream {
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException {
+    public synchronized void write(byte[] b, int off, int len) throws IOException {
         if (!buf.isWritable()) {
             flush();
         }
@@ -50,7 +50,7 @@ class ByteBufFileOutput extends FileOutputStream {
     }
 
     @Override
-    public void flush() throws IOException {
+    public synchronized void flush() throws IOException {
         while (buf.isReadable()) {
             buf.readBytes(getChannel(), buf.readerIndex(), buf.readableBytes());
         }

@@ -39,4 +39,11 @@ public interface PropertySource {
     }
 
     void setProperty(String key, String value);
+
+    default String getPropertyIgnoreCase(String key) {
+        String value = getProperty(key.toLowerCase());
+        if (value == null)
+            value = getProperty(key.toUpperCase());
+        return value;
+    }
 }

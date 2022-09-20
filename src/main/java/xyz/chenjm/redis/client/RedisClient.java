@@ -7,6 +7,8 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.redis.RedisArrayAggregator;
+import io.netty.handler.codec.redis.RedisBulkStringAggregator;
 import io.netty.handler.codec.redis.RedisDecoder;
 import io.netty.handler.codec.redis.RedisEncoder;
 
@@ -50,6 +52,8 @@ public class RedisClient {
                 ch.pipeline()
                         .addLast(new RedisEncoder())
                         .addLast(new RedisDecoder())
+                        .addLast("string-decode", new RedisBulkStringAggregator())
+                        .addLast("array-decode", new RedisArrayAggregator())
                         .addLast(handler);
             }
         }).connect(host, port).sync().channel();
