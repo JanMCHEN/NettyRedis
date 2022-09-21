@@ -110,7 +110,7 @@ public class PackageClassScanner {
 
         @Override
         public boolean filter(String str, Class<?> clazz) {
-            return clazz != null && clazz.isAssignableFrom(type);
+            return clazz != null && type.isAssignableFrom(clazz);
         }
     }
 
@@ -172,7 +172,7 @@ public class PackageClassScanner {
     }
 
     private void filter(String className) {
-        Class<?> aClass = null;
+        Class<?> aClass;
         try {
             aClass = classLoader.loadClass(className);
         } catch (ClassNotFoundException e) {

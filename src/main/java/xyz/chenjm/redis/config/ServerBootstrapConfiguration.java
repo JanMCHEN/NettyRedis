@@ -5,6 +5,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.ServerSocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.slf4j.Logger;
@@ -30,7 +31,7 @@ public class ServerBootstrapConfiguration implements RedisConfig{
         ServerBootstrap bootstrap = new ServerBootstrap();
         NioEventLoopGroup bossGroup = new NioEventLoopGroup(bossThreads);
         NioEventLoopGroup workerGroup = new NioEventLoopGroup(workerThreads);
-        bootstrap.group(bossGroup, workerGroup).channel(ServerSocketChannel.class);
+        bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class);
         bootstrap.option(ChannelOption.SO_BACKLOG, 1024);
         bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 

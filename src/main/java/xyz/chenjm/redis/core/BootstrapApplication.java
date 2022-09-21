@@ -31,7 +31,7 @@ public class BootstrapApplication {
 
     private final ClassPathCommandScanner scanner = new ClassPathCommandScanner();
 
-    private CommandExecutor cmdExecutor = new DefaultCommandExecutor();
+    private final CommandExecutor cmdExecutor = new DefaultCommandExecutor();
 
 
     @SuppressWarnings("all")
@@ -49,9 +49,10 @@ public class BootstrapApplication {
     }
 
     public void run() {
+        // 扫描并添加Command
         scanner.scan(basePackages);
-        scanner.getScans().stream().forEach(aClass -> {
-            cmdExecutor.addCommand((CommandRunner) aClass);
+        scanner.getScans().forEach(aClass -> {
+            cmdExecutor.addCommand(scanner.newCommand(aClass));
         });
 
         serverConf.initFromSource(source);

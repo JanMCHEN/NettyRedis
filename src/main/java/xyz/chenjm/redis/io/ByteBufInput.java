@@ -12,7 +12,7 @@ public class ByteBufInput extends InputStream {
 
     public ByteBufInput(InputStream stream) {
         in = stream;
-        buf = Unpooled.directBuffer(16, 512);
+        buf = Unpooled.directBuffer(512, 512);
     }
 
     @Override
@@ -27,6 +27,7 @@ public class ByteBufInput extends InputStream {
     }
 
     private void buffer() throws IOException {
+        buf.discardReadBytes();
         buf.writeBytes(in, buf.writableBytes());
     }
 

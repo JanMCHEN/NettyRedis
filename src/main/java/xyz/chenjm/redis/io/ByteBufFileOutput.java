@@ -25,18 +25,18 @@ public class ByteBufFileOutput extends FileOutputStream {
 
     @Override
     public synchronized void write(byte[] b) throws IOException {
-        if (!buf.isWritable()) {
-            flush();
-        }
-        buf.writeBytes(b);
+        write(b, 0, b.length);
     }
 
     @Override
     public synchronized void write(byte[] b, int off, int len) throws IOException {
-        if (!buf.isWritable()) {
+        if (len <= 0) return;
+        if (len > buf.maxFastWritableBytes()) {
             flush();
         }
-        buf.writeBytes(b, off, len);
+        int write = Math.min(len, buf.maxWritableBytes());
+        buf.writeBytes(b, off, write);
+        write(b, off+write, len-write);
     }
 
     @Override
@@ -54,15 +54,6 @@ public class ByteBufFileOutput extends FileOutputStream {
         while (buf.isReadable()) {
             buf.readBytes(getChannel(), buf.readerIndex(), buf.readableBytes());
         }
-        super.flush();
         buf.clear();
-    }
-
-    public void fsync() {
-        try {
-            getFD().sync();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

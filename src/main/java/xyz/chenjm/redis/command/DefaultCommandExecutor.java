@@ -13,7 +13,7 @@ import java.util.Map;
 public class DefaultCommandExecutor implements CommandExecutor {
     private static final Logger log = LoggerFactory.getLogger(DefaultCommandExecutor.class);
 
-    Map<String, Command2> commandMap = new HashMap<>();
+    Map<String, RedisCommand> commandMap = new HashMap<>();
 
     EventPublisher<CommandEvent> publisher = new EventPublisher<>();
 
@@ -22,9 +22,9 @@ public class DefaultCommandExecutor implements CommandExecutor {
     }
 
     @Override
-    public void addCommand(Command2 cmd) {
+    public void addCommand(RedisCommand cmd) {
         String key = cmd.getName().toUpperCase();
-        Command2 put = commandMap.put(key, cmd);
+        RedisCommand put = commandMap.put(key, cmd);
         if (put != null) {
             log.warn("repeat command '{}', old={}, new={}", key, put, cmd);
         }
@@ -42,7 +42,7 @@ public class DefaultCommandExecutor implements CommandExecutor {
         }else {
             key = ann.value();
         }
-        Command2 cmd = new Command2();
+        RedisCommand cmd = new RedisCommand();
         cmd.setName(key);
         cmd.setRunner(runner);
         if (ann != null) {
@@ -54,15 +54,15 @@ public class DefaultCommandExecutor implements CommandExecutor {
     }
 
     @Override
-    public Command2 getCommand(String ... args) {
-        Command2 cmd = commandMap.get(args[0]);
+    public RedisCommand getCommand(String ... args) {
+        RedisCommand cmd = commandMap.get(args[0].toUpperCase());
         if (cmd == null)
             throw new NoSuchCommandErr(args[0]);
         cmd.checkArgs(args);
         return cmd;
     }
 
-    public Object call(RedisClient client, Command2 cmd, String... args) {
+    public Object call(RedisClient client, RedisCommand cmd, String... args) {
         Object res = cmd.invoke(client, args);
         publisher.onEvent(new CommandEvent(client, cmd, res, args));
         return res;

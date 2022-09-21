@@ -1,9 +1,6 @@
 package xyz.chenjm.redis.annotation;
 
-import xyz.chenjm.redis.command.Command2;
 import xyz.chenjm.redis.command.CommandRunner;
-import xyz.chenjm.redis.command.RedisCommand;
-import xyz.chenjm.redis.command.RedisCommandHolder;
 import xyz.chenjm.redis.utils.PackageClassScanner;
 
 import java.lang.reflect.InvocationTargetException;

@@ -22,7 +22,7 @@ public class RedisServerConfiguration implements RedisConfig{
 
     // append only file
     boolean appendOnly=true;
-    String appendFileName;
+    String appendFileName = "appendonly.aof";
     String appendFsync="always";
     private EventLoop eventLoop;
     private CommandExecutor commandExecutor;
@@ -68,6 +68,9 @@ public class RedisServerConfiguration implements RedisConfig{
                 String[] args = decodeArray(stream);
                 if (args.length==0)
                     break;
+                if ("MULTI".equalsIgnoreCase(args[0]) || "EXEC".equalsIgnoreCase(args[0])) {
+                    continue;
+                }
                 commandExecutor.getCommand(args).invoke(client, args);
             }
 
@@ -108,14 +111,16 @@ public class RedisServerConfiguration implements RedisConfig{
     private int decodeLength(InputStream in) throws IOException {
         int ans = 0;
         while (true) {
-            int r = in.read() - '0';
-            if (r < 0 || r > 9) {
-                if (in.read() != '\n') {
+            int r = in.read();
+            if (r < '0' || r > '9') {
+                if (r == '\r')
+                    r = in.read();
+                if (r != '\n') {
                     throw new IllegalStateException();
                 }
                 break;
             }
-            ans = ans * 10 + r;
+            ans = ans * 10 + r - '0';
         }
         return ans;
     }
@@ -126,8 +131,11 @@ public class RedisServerConfiguration implements RedisConfig{
             int n = decodeLength(in);
             String ans = new String(in.readNBytes(n));
             if (ans.length() == n) {
-                in.readNBytes(2);
-                return ans;
+                flag = in.read();
+                if (flag == '\r')
+                    flag = in.read();
+                if (flag == '\n')
+                    return ans;
             }
         }
         throw new IllegalStateException();

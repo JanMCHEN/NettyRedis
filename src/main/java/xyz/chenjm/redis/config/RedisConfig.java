@@ -1,37 +1,43 @@
 package xyz.chenjm.redis.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
 public interface RedisConfig {
-    Logger log = LoggerFactory.getLogger(RedisConfig.class);
-
     default void initFromSource(PropertySource source) {
-        Field[] fields = getClass().getFields();
+        Field[] fields = getClass().getDeclaredFields();
         for (Field field : fields) {
-            if (Modifier.isFinal(field.getModifiers()) || Modifier.isPrivate(field.getModifiers()))
+            int mod = field.getModifiers();
+            if (Modifier.isFinal(mod) || Modifier.isPrivate(mod) || Modifier.isStatic(mod))
                 continue;
             field.setAccessible(true);
             try {
                 setField(field, source);
-            } catch (IllegalAccessException e) {
-                log.warn("field '{}'set wrong", field.getName(), e);
+            } catch (IllegalAccessException ignored) {
             }
         }
     }
     default void setField(Field field, PropertySource source) throws IllegalAccessException {
-        Class<?> type = field.getType();
         String value = source.getPropertyIgnoreCase(field.getName());
-        if (type.isAssignableFrom(Number.class)) {
-            field.set(this, Long.valueOf(value));
-        } else if (type.isAssignableFrom(Boolean.class)) {
-            field.set(this, Boolean.parseBoolean(value));
-        } else if (type.isAssignableFrom(String.class)) {
+        if (value == null)
+            return;
+        Class<?> type = field.getType();
+
+        if (type == String.class) {
             field.set(this, value);
-        }else {
+        } else if (type == Long.class || type == Long.TYPE) {
+            field.setLong(this, Long.parseLong(value));
+        } else if (type == Integer.class || type == Integer.TYPE) {
+            field.setInt(this, Integer.parseInt(value));
+        } else if (type == Double.class || type == Double.TYPE) {
+            field.setDouble(this, Double.parseDouble(value));
+        } else if (type == Float.class || type == Float.TYPE) {
+            field.setFloat(this, Float.parseFloat(value));
+        } else if (type == Boolean.class || type == Boolean.TYPE) {
+            field.setBoolean(this, Boolean.parseBoolean(value));
+        } else if (type == Byte.class || type == Byte.TYPE) {
+            field.setByte(this, Byte.parseByte(value));
+        } else {
             throw new IllegalAccessException();
         }
     }

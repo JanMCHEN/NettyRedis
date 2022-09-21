@@ -4,7 +4,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.redis.ErrorRedisMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.chenjm.redis.command.Command2;
+import xyz.chenjm.redis.command.RedisCommand;
 import xyz.chenjm.redis.command.CommandExecutor;
 import xyz.chenjm.redis.exception.RedisException;
 import xyz.chenjm.redis.core.structure.RedisObject;
@@ -19,15 +19,15 @@ public class RedisClient {
     static final Logger log = LoggerFactory.getLogger(RedisClient.class);
 
     static public class CommandWithArgs{
-        private final Command2 method;
+        private final RedisCommand method;
         private final String[]args;
 
-        public CommandWithArgs(Command2 method, String[] args) {
+        public CommandWithArgs(RedisCommand method, String[] args) {
             this.method = method;
             this.args = args;
         }
 
-        public Command2 getMethod() {
+        public RedisCommand getMethod() {
             return method;
         }
 
@@ -75,7 +75,14 @@ public class RedisClient {
         server.getEventLoop().submit(task);
     }
     public void execute(String[] args) {
-        Command2 cmd = commandExecutor.getCommand(args);
+        RedisCommand cmd;
+        try{
+            cmd = commandExecutor.getCommand(args);
+        }catch (RedisException e) {
+            setError();
+            writeAndFlush(new ErrorRedisMessage(e.getMessage()));
+            return;
+        }
 
         if (isMulti() && cmd.multi()) {
             addCommand(cmd, args);
@@ -86,9 +93,10 @@ public class RedisClient {
                 try{
                     res = commandExecutor.call(this, cmd, args);
                 }catch (RedisException e) {
-                    if (e.isError())
-                        setError();
                     res = new ErrorRedisMessage(e.getMessage());
+                }catch (Exception ex) {
+                    log.error("command '{}'execute wrong", args[0], ex);
+                    res = RedisMessageFactory.ERR;
                 }
                 writeAndFlush(res);
             });
@@ -130,7 +138,7 @@ public class RedisClient {
     /*      END              */
 
 
-    public void addCommand(Command2 method , String[] args) {
+    public void addCommand(RedisCommand method , String[] args) {
         if(isError()||isDirty()) {
             commands.clear();
             return;
