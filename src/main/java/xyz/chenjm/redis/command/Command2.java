@@ -3,7 +3,7 @@ package xyz.chenjm.redis.command;
 import xyz.chenjm.redis.core.RedisClient;
 import xyz.chenjm.redis.exception.WrongNumberCommandErr;
 
-public class Command implements CommandRunner{
+public class Command2 implements CommandRunner{
     CommandRunner runner;
     int flags;
 
@@ -12,6 +12,14 @@ public class Command implements CommandRunner{
 
     /* 参数数量， -N means >= N */
     int argNums;
+
+    public void setArgNums(int argNums) {
+        this.argNums = argNums;
+    }
+
+    public void setRunner(CommandRunner runner) {
+        this.runner = runner;
+    }
 
     /**
      * 只读的命令，不会修改数据库

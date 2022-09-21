@@ -18,11 +18,10 @@ import java.io.OutputStream;
 
 public class RedisServerConfiguration implements RedisConfig{
     int dbNum = 16;
-    String dir;
+    String dir = "./";
 
     // append only file
-
-    boolean appendonly=true;
+    boolean appendOnly=true;
     String appendFileName;
     String appendFsync="always";
     private EventLoop eventLoop;
@@ -54,7 +53,7 @@ public class RedisServerConfiguration implements RedisConfig{
     }
 
     private void loadFromDisk(RedisServer server) {
-        if (appendonly) {
+        if (appendOnly) {
             loadAppendOnlyFile(server);
         }
     }
@@ -133,6 +132,4 @@ public class RedisServerConfiguration implements RedisConfig{
         }
         throw new IllegalStateException();
     }
-
-
 }

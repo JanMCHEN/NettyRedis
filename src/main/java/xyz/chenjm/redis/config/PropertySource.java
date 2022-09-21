@@ -19,7 +19,6 @@ public interface PropertySource {
                 log.warn("'{}' not a file", propertyFile);
             }
         }
-
         return source;
     }
 

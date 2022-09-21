@@ -5,11 +5,11 @@ import xyz.chenjm.redis.core.RedisClient;
 
 public class CommandEvent implements Event {
     RedisClient client;
-    Command cmd;
+    Command2 cmd;
     Object res;
     String[] args;
 
-    public CommandEvent(RedisClient client, Command cmd, Object res, String[] args) {
+    public CommandEvent(RedisClient client, Command2 cmd, Object res, String[] args) {
         this.client = client;
         this.cmd = cmd;
         this.res = res;
@@ -20,7 +20,7 @@ public class CommandEvent implements Event {
         return client;
     }
 
-    public Command getCmd() {
+    public Command2 getCmd() {
         return cmd;
     }
 

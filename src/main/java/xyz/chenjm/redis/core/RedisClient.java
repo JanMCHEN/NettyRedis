@@ -4,7 +4,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.redis.ErrorRedisMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.chenjm.redis.command.Command;
+import xyz.chenjm.redis.command.Command2;
 import xyz.chenjm.redis.command.CommandExecutor;
 import xyz.chenjm.redis.exception.RedisException;
 import xyz.chenjm.redis.core.structure.RedisObject;
@@ -19,15 +19,15 @@ public class RedisClient {
     static final Logger log = LoggerFactory.getLogger(RedisClient.class);
 
     static public class CommandWithArgs{
-        private final Command method;
+        private final Command2 method;
         private final String[]args;
 
-        public CommandWithArgs(Command method, String[] args) {
+        public CommandWithArgs(Command2 method, String[] args) {
             this.method = method;
             this.args = args;
         }
 
-        public Command getMethod() {
+        public Command2 getMethod() {
             return method;
         }
 
@@ -44,7 +44,7 @@ public class RedisClient {
     private final SocketChannel channel;
     private final RedisServer server;
 
-    CommandExecutor commandExecutor;
+    private final CommandExecutor commandExecutor;
 
     // blocked
     long timeout;
@@ -56,7 +56,7 @@ public class RedisClient {
         channel = ch;
         this.server = server;
         db = server.getDB(0);
-
+        commandExecutor = server.getCmdExecutor();
     }
 
     public RedisDB getDb() {
@@ -75,7 +75,7 @@ public class RedisClient {
         server.getEventLoop().submit(task);
     }
     public void execute(String[] args) {
-        Command cmd = commandExecutor.getCommand(args);
+        Command2 cmd = commandExecutor.getCommand(args);
 
         if (isMulti() && cmd.multi()) {
             addCommand(cmd, args);
@@ -130,7 +130,7 @@ public class RedisClient {
     /*      END              */
 
 
-    public void addCommand(Command method ,String[] args) {
+    public void addCommand(Command2 method , String[] args) {
         if(isError()||isDirty()) {
             commands.clear();
             return;

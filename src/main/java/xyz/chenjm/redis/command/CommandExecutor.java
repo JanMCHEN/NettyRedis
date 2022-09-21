@@ -3,11 +3,11 @@ package xyz.chenjm.redis.command;
 import xyz.chenjm.redis.core.RedisClient;
 
 public interface CommandExecutor {
-    void addCommand(Command cmd);
+    void addCommand(Command2 cmd);
 
     void addCommand(CommandRunner runner);
 
-    Command getCommand(String... args);
+    Command2 getCommand(String... args);
 
-    Object call(RedisClient client, Command cmd, String... args);
+    Object call(RedisClient client, Command2 cmd, String... args);
 }

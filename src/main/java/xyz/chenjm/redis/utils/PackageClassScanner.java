@@ -12,7 +12,7 @@ import java.util.jar.JarFile;
 public class PackageClassScanner {
 
     public interface Filter {
-        Class<?> filter(String str, Class<?> clazz);
+        boolean filter(String str, Class<?> clazz);
     }
 
     public interface ResourceHandler {
@@ -93,66 +93,41 @@ public class PackageClassScanner {
 
     public static class AnnotationTypeFilter implements Filter {
         private final Class<? extends Annotation> annotationType;
-        private  ClassLoader classLoader = getClass().getClassLoader();
         public AnnotationTypeFilter(Class<? extends Annotation> ann) {
             annotationType = ann;
         }
+        @Override
+        public boolean filter(String str, Class<?> clazz) {
+            return clazz != null && clazz.getAnnotation(annotationType) != null;
+        }
+    }
 
-        public void setClassLoader(ClassLoader cl) {
-            classLoader = cl;
+    public static class TypeFilter implements Filter {
+        private final Class<?> type;
+        public TypeFilter(Class<?> type) {
+            this.type = type;
         }
 
         @Override
-        public Class<?> filter(String str, Class<?> clazz) {
-            if (clazz == null) {
-                try {
-                    clazz = classLoader.loadClass(str);
-                } catch (ClassNotFoundException e) {
-                    return null;
-                }
-            }
-            Annotation ann = clazz.getAnnotation(annotationType);
-            if (ann == null) return null;
-            return clazz;
+        public boolean filter(String str, Class<?> clazz) {
+            return clazz != null && clazz.isAssignableFrom(type);
         }
     }
 
-    public static class InterfaceFilter implements Filter {
-        private final Class<?> interfaceType;
-        private ClassLoader classLoader = getClass().getClassLoader();
-
-        public void setClassLoader(ClassLoader classLoader) {
-            this.classLoader = classLoader;
-        }
-
-        public InterfaceFilter(Class<?> type) {
-            this.interfaceType = type;
-        }
-
-        @Override
-        public Class<?> filter(String str, Class<?> clazz) {
-            if (clazz == null) {
-                try {
-                    clazz = classLoader.loadClass(str);
-                } catch (ClassNotFoundException e) {
-                    return null;
-                }
-            }
-
-            if (clazz.isAssignableFrom(interfaceType))
-                return clazz;
-            return null;
-        }
+    public Set<Class<?>> getScans() {
+        return scans;
     }
 
-    public Set<Class<?>> getClazz() {
-        return clazz;
-    }
-
-    final Set<Class<?>> clazz = new HashSet<>();
+    final Set<Class<?>> scans = new HashSet<>();
 
     private final List<Filter> filterChain = new ArrayList<>();
     private final List<ResourceHandler> handlerChain = new ArrayList<>();
+
+    private ClassLoader classLoader = getClass().getClassLoader();
+
+    public void setClassLoader(ClassLoader classLoader) {
+        this.classLoader = classLoader;
+    }
 
     public void addFilter(Filter filter) {
         filterChain.add(filter);
@@ -198,12 +173,17 @@ public class PackageClassScanner {
 
     private void filter(String className) {
         Class<?> aClass = null;
+        try {
+            aClass = classLoader.loadClass(className);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         for (Filter filter: filterChain) {
-            aClass = filter.filter(className, aClass);
+            if (!filter.filter(className, aClass)){
+                return;
+            }
         }
-        if (aClass != null) {
-            clazz.add(aClass);
-        }
+        scans.add(aClass);
     }
 
 }
