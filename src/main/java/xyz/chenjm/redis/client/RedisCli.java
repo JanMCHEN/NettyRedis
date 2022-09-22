@@ -12,10 +12,9 @@ import io.netty.handler.codec.redis.RedisBulkStringAggregator;
 import io.netty.handler.codec.redis.RedisDecoder;
 import io.netty.handler.codec.redis.RedisEncoder;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
-public class RedisClient {
+public class RedisCli {
     ClientHandler handler = new ClientHandler();
     private Channel channel;
     Bootstrap bootstrap;
@@ -23,9 +22,9 @@ public class RedisClient {
     String host = "localhost";
     int port = 6379;
 
-    public RedisClient(){}
+    public RedisCli(){}
 
-    public RedisClient(String h, int p) {
+    public RedisCli(String h, int p) {
         host = h;
         port = p;
     }
@@ -65,10 +64,10 @@ public class RedisClient {
     }
 
     public RedisConnection newConnection() {
-        return new DefaultConnection();
+        return new Connection();
     }
 
-    class DefaultConnection implements RedisConnection{
+    class Connection implements RedisConnection{
         public volatile int connId = -1;
         public Thread thread = Thread.currentThread();
 

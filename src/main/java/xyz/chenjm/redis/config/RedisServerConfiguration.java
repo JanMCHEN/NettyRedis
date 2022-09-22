@@ -1,20 +1,18 @@
 package xyz.chenjm.redis.config;
 
+import io.netty.buffer.ByteBufOutputStream;
 import io.netty.channel.DefaultEventLoop;
 import io.netty.channel.EventLoop;
 import xyz.chenjm.redis.command.CommandExecutor;
+import xyz.chenjm.redis.command.CommandHolder;
 import xyz.chenjm.redis.command.DefaultCommandExecutor;
-import xyz.chenjm.redis.core.RedisClient;
-import xyz.chenjm.redis.core.RedisDB;
-import xyz.chenjm.redis.core.RedisServer;
+import xyz.chenjm.redis.core.*;
 import xyz.chenjm.redis.io.AofEventListener;
+import xyz.chenjm.redis.io.AofWriter;
 import xyz.chenjm.redis.io.ByteBufFileOutput;
 import xyz.chenjm.redis.io.ByteBufInput;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 
 public class RedisServerConfiguration implements RedisConfig{
     int dbNum = 16;
@@ -25,14 +23,19 @@ public class RedisServerConfiguration implements RedisConfig{
     String appendFileName = "appendonly.aof";
     String appendFsync="always";
     private EventLoop eventLoop;
-    private CommandExecutor commandExecutor;
+    private CommandHolder commandHolder;
+
+    private FileOutputStream aof;
+    private FileOutputStream rdb;
+
+    private final EventPublisher<CommandTask> commandPublisher = new EventPublisher<>();
 
     public void setEventLoop(EventLoop eventLoop) {
         this.eventLoop = eventLoop;
     }
 
-    public void setCommandExecutor(CommandExecutor commandExecutor) {
-        this.commandExecutor = commandExecutor;
+    public void setCommandHolder(CommandHolder commandHolder) {
+        this.commandHolder = commandHolder;
     }
 
     public RedisServer newServer() {
@@ -46,7 +49,7 @@ public class RedisServerConfiguration implements RedisConfig{
             eventLoop = new DefaultEventLoop();
         }
         server.setEventLoop(eventLoop);
-        server.setCmdExecutor(commandExecutor);
+        server.setCommandHolder(commandHolder);
         loadFromDisk(server);
 
         return server;
@@ -71,8 +74,14 @@ public class RedisServerConfiguration implements RedisConfig{
                 if ("MULTI".equalsIgnoreCase(args[0]) || "EXEC".equalsIgnoreCase(args[0])) {
                     continue;
                 }
-                commandExecutor.getCommand(args).invoke(client, args);
+                commandHolder.getCommand(args).invoke(client, args);
             }
+
+            aof = new FileOutputStream(appendFileName, true);
+
+            AofWriter aofWriter = new AofWriter(aof);
+
+
 
             // aof listener
             if (commandExecutor instanceof DefaultCommandExecutor) {

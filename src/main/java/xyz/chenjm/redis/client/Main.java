@@ -6,7 +6,7 @@ import java.util.concurrent.*;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        RedisClient client = new RedisClient("localhost", 7000);
+        RedisCli client = new RedisCli("localhost", 7000);
         client.connect();
         int threads = 5000;
 

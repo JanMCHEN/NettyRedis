@@ -1,4 +1,4 @@
-package xyz.chenjm.redis.core.handler;
+package xyz.chenjm.redis.handler;
 
 import xyz.chenjm.redis.core.RedisMessageFactory;
 import xyz.chenjm.redis.core.structure.RedisString;

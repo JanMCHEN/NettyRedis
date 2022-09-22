@@ -1,15 +1,29 @@
 package xyz.chenjm.redis.core;
 
 import io.netty.channel.EventLoop;
+import io.netty.handler.codec.redis.ErrorRedisMessage;
+import io.netty.util.concurrent.Future;
 import xyz.chenjm.redis.command.CommandExecutor;
+import xyz.chenjm.redis.command.CommandHolder;
+import xyz.chenjm.redis.command.RedisCommand;
+import xyz.chenjm.redis.exception.RedisException;
 
 public class RedisServer {
     EventLoop eventLoop;
     RedisDB[] dbs;
 
-    CommandExecutor cmdExecutor;
-
+    CommandHolder commandHolder;
     ReplicateMaster master;
+
+    long offset = 0;
+
+    public long getOffset() {
+        return offset;
+    }
+
+    public void setOffset(long offset) {
+        this.offset = offset;
+    }
 
     public void setEventLoop(EventLoop eventLoop) {
         this.eventLoop = eventLoop;
@@ -19,12 +33,8 @@ public class RedisServer {
         this.dbs = dbs;
     }
 
-    public CommandExecutor getCmdExecutor() {
-        return cmdExecutor;
-    }
-
-    public void setCmdExecutor(CommandExecutor cmdExecutor) {
-        this.cmdExecutor = cmdExecutor;
+    public void setCommandHolder(CommandHolder commandHolder) {
+        this.commandHolder = commandHolder;
     }
 
     static class ReplicateMaster {
@@ -50,6 +60,17 @@ public class RedisServer {
 
     public boolean isSlave() {
         return master != null;
+    }
+
+    public RedisCommand getCommand(String... args) {
+        return commandHolder.getCommand(args);
+    }
+
+    public void execute(Runnable task) {
+        if (task instanceof CommandTask) {
+
+        }
+        eventLoop.submit(task);
     }
 
 }

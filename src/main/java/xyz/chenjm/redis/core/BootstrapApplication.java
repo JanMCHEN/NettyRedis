@@ -5,9 +5,7 @@ import org.slf4j.LoggerFactory;
 import xyz.chenjm.redis.annotation.ClassPathCommandScanner;
 import xyz.chenjm.redis.annotation.CommandScan;
 import xyz.chenjm.redis.annotation.Source;
-import xyz.chenjm.redis.command.CommandExecutor;
-import xyz.chenjm.redis.command.CommandRunner;
-import xyz.chenjm.redis.command.DefaultCommandExecutor;
+import xyz.chenjm.redis.command.*;
 import xyz.chenjm.redis.config.PropertySource;
 import xyz.chenjm.redis.config.RedisServerConfiguration;
 import xyz.chenjm.redis.config.ServerBootstrapConfiguration;
@@ -31,8 +29,7 @@ public class BootstrapApplication {
 
     private final ClassPathCommandScanner scanner = new ClassPathCommandScanner();
 
-    private final CommandExecutor cmdExecutor = new DefaultCommandExecutor();
-
+    private final CommandHolder cmdHolder = new DefaultCommandHolder();
 
     @SuppressWarnings("all")
     public static BootstrapApplication run(Class<?> cls, String... args) {
@@ -52,11 +49,11 @@ public class BootstrapApplication {
         // 扫描并添加Command
         scanner.scan(basePackages);
         scanner.getScans().forEach(aClass -> {
-            cmdExecutor.addCommand(scanner.newCommand(aClass));
+            cmdHolder.addCommand(scanner.newCommand(aClass));
         });
 
         serverConf.initFromSource(source);
-        serverConf.setCommandExecutor(cmdExecutor);
+        serverConf.setCommandHolder(cmdHolder);
         RedisServer server = serverConf.newServer();
 
         sbc.initFromSource(source);

@@ -1,5 +1,6 @@
 package xyz.chenjm.redis.core;
 
+import io.netty.channel.Channel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.redis.ErrorRedisMessage;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import xyz.chenjm.redis.exception.RedisException;
 import xyz.chenjm.redis.core.structure.RedisObject;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 
 /**
  * 客户端状态管理
@@ -37,14 +39,12 @@ public class RedisClient {
     }
 
     private volatile int state = 0;
-    private final List<CommandWithArgs> commands = new ArrayList<>();
+    List<Callable<Object>> commandTasks = new ArrayList<>();
     private final HashSet<String> watchedKeys = new HashSet<>();
     private volatile int selectDb = 0;
     private volatile RedisDB db;
-    private final SocketChannel channel;
+    private final Channel channel;
     private final RedisServer server;
-
-    private final CommandExecutor commandExecutor;
 
     // blocked
     long timeout;
@@ -52,17 +52,15 @@ public class RedisClient {
     RedisObject target;
 
 
-    public RedisClient(SocketChannel ch, RedisServer server) {
+    public RedisClient(Channel ch, RedisServer server) {
         channel = ch;
         this.server = server;
         db = server.getDB(0);
-        commandExecutor = server.getCmdExecutor();
     }
 
     public RedisDB getDb() {
         return db;
     }
-
     public int selectDb() {
         return selectDb;
     }
@@ -71,35 +69,26 @@ public class RedisClient {
         selectDb = i;
     }
 
-    public void execute(Runnable task) {
-        server.getEventLoop().submit(task);
+    public RedisServer getServer() {
+        return server;
     }
+
     public void execute(String[] args) {
         RedisCommand cmd;
         try{
-            cmd = commandExecutor.getCommand(args);
+            cmd = server.getCommand(args);
         }catch (RedisException e) {
             setError();
             writeAndFlush(new ErrorRedisMessage(e.getMessage()));
             return;
         }
 
+        CommandTask task = new CommandTask(this, cmd, args);
         if (isMulti() && cmd.multi()) {
-            addCommand(cmd, args);
+            addTask(task);
             writeAndFlush(RedisMessageFactory.QUEUED);
         }else {
-            execute(()->{
-                Object res;
-                try{
-                    res = commandExecutor.call(this, cmd, args);
-                }catch (RedisException e) {
-                    res = new ErrorRedisMessage(e.getMessage());
-                }catch (Exception ex) {
-                    log.error("command '{}'execute wrong", args[0], ex);
-                    res = RedisMessageFactory.ERR;
-                }
-                writeAndFlush(res);
-            });
+            server.execute(task);
         }
     }
 
@@ -137,17 +126,8 @@ public class RedisClient {
     }
     /*      END              */
 
-
-    public void addCommand(RedisCommand method , String[] args) {
-        if(isError()||isDirty()) {
-            commands.clear();
-            return;
-        }
-        commands.add(new CommandWithArgs(method, args));
-    }
-
-    public List<CommandWithArgs> getCommands() {
-        return commands;
+    public void addTask(Callable<Object> task) {
+        commandTasks.add(task);
     }
 
     public Object watch(String...keys) {
@@ -175,19 +155,15 @@ public class RedisClient {
         }else if(isDirty()) {
             res = RedisMessageFactory.NULL;
         } else {
-            Object[] arr = new Object[commands.size()];
-            for (int i=0;i<arr.length;++i) {
-                Object ans;
-                CommandWithArgs next = commands.get(i);
+            Object[] arr = new Object[commandTasks.size()];
+            int i = 0;
+            for (Callable<Object> task : commandTasks) {
                 try {
-                    ans = commandExecutor.call(this, next.getMethod(), next.getArgs());
-                } catch (RedisException e){
-                    ans = new ErrorRedisMessage(e.getMessage());
-                }catch (Exception e) {
-                    log.error("事务中命令'{}'执行错误", next.getMethod().getName(), e);
-                    ans = RedisMessageFactory.ERR;
+                    arr[i] = task.call();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-                arr[i] = ans;
+                i++;
             }
             res = arr;
         }
@@ -210,7 +186,7 @@ public class RedisClient {
      */
     public void reset() {
         state &= 8;
-        commands.clear();
+        commandTasks.clear();
         Iterator<String> iterator = watchedKeys.iterator();
         while(iterator.hasNext()) {
             String key = iterator.next();
@@ -271,7 +247,9 @@ public class RedisClient {
         channel.writeAndFlush(msg);
     }
     public void close() {
-        reset();
-        unblocked();
+        server.execute(()->{
+            reset();
+            unblocked();
+        });
     }
 }

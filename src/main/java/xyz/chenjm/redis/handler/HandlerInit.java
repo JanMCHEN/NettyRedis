@@ -1,4 +1,4 @@
-package xyz.chenjm.redis.core.handler;
+package xyz.chenjm.redis.handler;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -24,7 +24,7 @@ public class HandlerInit extends ChannelInitializer<SocketChannel> {
 
     @Override
     protected void initChannel(SocketChannel ch) {
-        CommandHandler cmdHandler = new CommandHandler();
+        RedisCommandHandler cmdHandler = new RedisCommandHandler();
         cmdHandler.setServer(server);
 
         ChannelPipeline pipeline = ch.pipeline();
