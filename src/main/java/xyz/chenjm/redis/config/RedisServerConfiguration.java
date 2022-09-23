@@ -1,16 +1,12 @@
 package xyz.chenjm.redis.config;
 
-import io.netty.buffer.ByteBufOutputStream;
 import io.netty.channel.DefaultEventLoop;
 import io.netty.channel.EventLoop;
-import xyz.chenjm.redis.command.CommandExecutor;
 import xyz.chenjm.redis.command.CommandHolder;
-import xyz.chenjm.redis.command.DefaultCommandExecutor;
 import xyz.chenjm.redis.core.*;
-import xyz.chenjm.redis.io.AofEventListener;
-import xyz.chenjm.redis.io.AofWriter;
-import xyz.chenjm.redis.io.ByteBufFileOutput;
+import xyz.chenjm.redis.io.CommandWriter;
 import xyz.chenjm.redis.io.ByteBufInput;
+import xyz.chenjm.redis.io.FlushFileOutputStreamWrapper;
 
 import java.io.*;
 
@@ -25,7 +21,7 @@ public class RedisServerConfiguration implements RedisConfig{
     private EventLoop eventLoop;
     private CommandHolder commandHolder;
 
-    private FileOutputStream aof;
+    private OutputStream aof;
     private FileOutputStream rdb;
 
     private final EventPublisher<CommandTask> commandPublisher = new EventPublisher<>();
@@ -52,6 +48,8 @@ public class RedisServerConfiguration implements RedisConfig{
         server.setCommandHolder(commandHolder);
         loadFromDisk(server);
 
+        server.setCommandPublisher(commandPublisher);
+
         return server;
     }
 
@@ -77,18 +75,12 @@ public class RedisServerConfiguration implements RedisConfig{
                 commandHolder.getCommand(args).invoke(client, args);
             }
 
-            aof = new FileOutputStream(appendFileName, true);
-
-            AofWriter aofWriter = new AofWriter(aof);
-
-
-
-            // aof listener
-            if (commandExecutor instanceof DefaultCommandExecutor) {
-                OutputStream out = new ByteBufFileOutput(appendFileName);
-                ((DefaultCommandExecutor) commandExecutor).getPublisher().addListener(new AofEventListener(out));
-            }
-
+            // aof write
+            FileOutputStream aof = new FileOutputStream(appendFileName, true);
+            CommandWriter aofWriter = new CommandWriter(new FlushFileOutputStreamWrapper(aof));
+            AofListener listener = new AofListener();
+            listener.setWriter(aofWriter);
+            commandPublisher.addListener(listener);
         } catch (IOException ignored) {
 
         }finally {
@@ -98,8 +90,6 @@ public class RedisServerConfiguration implements RedisConfig{
             } catch (IOException ignored) {
             }
         }
-
-
     }
 
     private String[] decodeArray(InputStream in) throws IOException {

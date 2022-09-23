@@ -1,12 +1,10 @@
 package xyz.chenjm.redis.core;
 
 import io.netty.channel.Channel;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.redis.ErrorRedisMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.chenjm.redis.command.RedisCommand;
-import xyz.chenjm.redis.command.CommandExecutor;
 import xyz.chenjm.redis.exception.RedisException;
 import xyz.chenjm.redis.core.structure.RedisObject;
 
@@ -19,24 +17,6 @@ import java.util.concurrent.Callable;
 @SuppressWarnings("NonAtomicOperationOnVolatileField")
 public class RedisClient {
     static final Logger log = LoggerFactory.getLogger(RedisClient.class);
-
-    static public class CommandWithArgs{
-        private final RedisCommand method;
-        private final String[]args;
-
-        public CommandWithArgs(RedisCommand method, String[] args) {
-            this.method = method;
-            this.args = args;
-        }
-
-        public RedisCommand getMethod() {
-            return method;
-        }
-
-        public String[] getArgs() {
-            return args;
-        }
-    }
 
     private volatile int state = 0;
     List<Callable<Object>> commandTasks = new ArrayList<>();
@@ -83,7 +63,7 @@ public class RedisClient {
             return;
         }
 
-        CommandTask task = new CommandTask(this, cmd, args);
+        CommandTask task = server.newTask(this, cmd, args);
         if (isMulti() && cmd.multi()) {
             addTask(task);
             writeAndFlush(RedisMessageFactory.QUEUED);

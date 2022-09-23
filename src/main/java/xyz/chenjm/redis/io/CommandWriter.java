@@ -1,22 +1,18 @@
 package xyz.chenjm.redis.io;
 
-import io.netty.buffer.ByteBuf;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
-public class AofWriter {
+public class CommandWriter {
     private final OutputStream out;
     int selectDb = -1;
 
-    FlushHandler flushHandler = FlushHandler.getInstance("always");
-
-    public AofWriter(OutputStream outputStream) {
+    public CommandWriter(OutputStream outputStream) {
         out = outputStream;
     }
 
-    public void write(String[] args) {
+    public void write(String... args) {
         try {
             out.write('*');
             out.write(Long.toString(args.length).getBytes(StandardCharsets.US_ASCII));
@@ -29,7 +25,7 @@ public class AofWriter {
             throw new RuntimeException(e);
         }
         try {
-            flushHandler.tryFlush(out);
+            out.flush();
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }

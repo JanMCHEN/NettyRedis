@@ -1,27 +1,32 @@
 package xyz.chenjm.redis.core;
 
 import xyz.chenjm.redis.command.RedisCommand;
-import xyz.chenjm.redis.io.AofWriter;
+import xyz.chenjm.redis.io.CommandWriter;
 
 public class AofListener implements EventListener<CommandTask>{
-    private AofWriter writer;
+    private CommandWriter writer;
+    int selectDb = -1;
 
-    public AofWriter getWriter() {
+    public CommandWriter getWriter() {
         return writer;
     }
 
-    public void setWriter(AofWriter writer) {
+    public void setWriter(CommandWriter writer) {
         this.writer = writer;
     }
 
     @Override
     public void onEvent(CommandTask e) {
-        String[] args = e.getArgs();
         RedisCommand cmd = e.getCmd();
-
         if (cmd.readonly()) {
             return;
         }
+        int db = e.getClient().selectDb();
+        if (db != selectDb) {
+            writer.write("select", db+"");
+            selectDb = db;
+        }
+        String[] args = e.getArgs();
         writer.write(args);
     }
 }
