@@ -11,10 +11,14 @@ import xyz.chenjm.redis.exception.ErrorIntException;
 public class CommandSlaveOf implements CommandRunner {
     @Override
     public Object invoke(RedisClient client, String... args) {
-        String host = args[1];
-        int port = Integer.parseInt(args[2]);
-        client.getServer().setSlave(host, port);
+        if ("no".equals(args[1]) && "one".equals(args[2])) {
+            client.getServer().setSlave("", 0);
+        }
+        else {
+            String host = args[1];
+            int port = Integer.parseInt(args[2]);
+            client.getServer().setSlave(host, port);
+        }
         return true;
-
     }
 }

@@ -9,7 +9,7 @@ import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Promise;
 import xyz.chenjm.redis.codec.SimpleRedisMessageDecoder;
-import xyz.chenjm.redis.codec.RedisMessageDecoder;
+import xyz.chenjm.redis.codec.RedisMessageDecoder1;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ public class ClientHandler extends ChannelDuplexHandler {
     private final Map<Integer, Promise<RedisMessage>> results;
     EventExecutor executor;
 
-    RedisMessageDecoder codec = new SimpleRedisMessageDecoder();
+    RedisMessageDecoder1 codec = new SimpleRedisMessageDecoder();
 
     public ClientHandler() {
         results = new ConcurrentHashMap<>();

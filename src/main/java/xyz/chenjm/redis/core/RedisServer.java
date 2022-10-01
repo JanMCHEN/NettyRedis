@@ -4,6 +4,8 @@ import io.netty.channel.EventLoop;
 import xyz.chenjm.redis.command.CommandHolder;
 import xyz.chenjm.redis.command.RedisCommand;
 
+import java.util.concurrent.Callable;
+
 public class RedisServer {
     EventLoop eventLoop;
     RedisDB[] dbs;
@@ -68,9 +70,10 @@ public class RedisServer {
     }
 
     public void execute(Runnable task) {
-        if (task instanceof CommandTask) {
+        eventLoop.execute(task);
+    }
 
-        }
+    public void execute(Callable<?> task) {
         eventLoop.submit(task);
     }
 

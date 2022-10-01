@@ -8,7 +8,7 @@ import xyz.chenjm.redis.exception.RedisException;
 
 import java.util.concurrent.Callable;
 
-public class CommandTask implements Runnable, Callable<Object>, Event {
+public class CommandTask implements Callable<Object>, Event {
     private static final Logger log = LoggerFactory.getLogger(CommandTask.class);
 
     private final RedisCommand cmd;
@@ -29,12 +29,6 @@ public class CommandTask implements Runnable, Callable<Object>, Event {
     }
 
     @Override
-    public void run() {
-        call();
-        client.writeAndFlush(res);
-    }
-
-    @Override
     public Object call(){
         try{
             res = cmd.invoke(client, args);
@@ -46,6 +40,10 @@ public class CommandTask implements Runnable, Callable<Object>, Event {
         }
         if (publisher != null) {
             publisher.onEvent(this);
+        }
+
+        if (!client.isMulti()) {
+            client.writeAndFlush(res);
         }
         return res;
     }

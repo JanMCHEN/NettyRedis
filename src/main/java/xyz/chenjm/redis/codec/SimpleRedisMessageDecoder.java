@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class SimpleRedisMessageDecoder implements RedisMessageDecoder {
+public class SimpleRedisMessageDecoder implements RedisMessageDecoder1 {
     boolean release = true;
     Charset charSet = StandardCharsets.UTF_8;
 

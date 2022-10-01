@@ -18,6 +18,27 @@ public class RedisReplicator {
     long offset = -1;
     String masterId = "0000";
 
+    private volatile boolean shouldRetry = false;
+
+    public void setShouldRetry(boolean shouldRetry) {
+        this.shouldRetry = shouldRetry;
+    }
+
+    public long getOffset() {
+        return offset;
+    }
+
+    public void setOffset(long offset) {
+        this.offset = offset;
+    }
+
+    public String getMasterId() {
+        return masterId;
+    }
+
+    public void setMasterId(String masterId) {
+        this.masterId = masterId;
+    }
 
     public RedisReplicator() {
 
@@ -42,7 +63,15 @@ public class RedisReplicator {
         init.setServer(server);
 
         channel = bootstrap.channel(NioSocketChannel.class).handler(init).connect(host, port).sync().channel();
-        channel.closeFuture().addListener(future -> connect());
+
+        channel.closeFuture().addListener(future -> {
+            if (shouldRetry) {
+                connect();
+                shouldRetry = false;
+            }
+        });
+
+        channel.writeAndFlush(new String[]{"psync", "?", "-1"});
 
     }
 

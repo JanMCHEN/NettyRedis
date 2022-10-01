@@ -43,7 +43,6 @@ public class RedisCommandHandler extends ChannelDuplexHandler {
         String[] args = resolveArgs(msg);
         if (args==null) {
             ctx.fireChannelRead(msg);
-            ReferenceCountUtil.release(msg);
             return;
         }
         ReferenceCountUtil.release(msg);

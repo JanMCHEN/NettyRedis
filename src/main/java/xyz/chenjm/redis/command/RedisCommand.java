@@ -70,7 +70,7 @@ public class RedisCommand implements CommandRunner{
 
     public void checkArgs(String... args) {
         int n = args.length - 1;
-        if (argNums > 0 && n == argNums || (argNums < 0 && n+argNums>=0)) {
+        if (argNums >= 0 && n == argNums || (argNums < 0 && n+argNums>=0)) {
             return;
         }
         throw new WrongNumberCommandErr(args[0]);

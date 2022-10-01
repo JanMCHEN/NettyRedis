@@ -1,4 +1,6 @@
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -19,6 +21,7 @@ public class WriteBug {
                             public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
                                 System.out.println("look at me");
                                 System.out.println(msg);
+                                ctx.write(msg, promise);
                             }
 
                         });
@@ -26,7 +29,9 @@ public class WriteBug {
                     }
                 }).connect("localhost", 7000).sync().channel();
 
-        ChannelFuture future = channel.write("dead lock");
+        ByteBuf buf = Unpooled.directBuffer().writeBytes("get a\r\n".getBytes());
+
+        ChannelFuture future = channel.write(buf);
 
         // 主线程阻塞，但并没有唤醒io线程，导致死锁；    没有唤醒是因为lazyExecute，
         // SingleThreadEventExecutor addTaskWakesUp默认false，并且immediate为false，只是将task添加到任务队列，并没有唤醒操作
