@@ -1,13 +1,12 @@
 package xyz.chenjm.redis.codec;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.util.ReferenceCounted;
 
-public class ArrayMessage implements RedisMessage {
+public class ArrayMessage implements RedisMessage1 {
     ArrayHeaderMessage header;
-    RedisMessage[] child;
+    RedisMessage1[] child;
 
     volatile ByteBuf buf;
 

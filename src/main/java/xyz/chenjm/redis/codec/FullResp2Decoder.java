@@ -5,8 +5,8 @@ import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FullResp2Decoder implements RedisMessageDecoder<RedisMessage>{
-    List<RedisMessageDecoder<? extends RedisMessage>> decoders = new ArrayList<>();
+public class FullResp2Decoder implements RedisMessageDecoder<RedisMessage1>{
+    List<RedisMessageDecoder<? extends RedisMessage1>> decoders = new ArrayList<>();
     private InlineProcessor lineEndProcessor = new InlineProcessor();
     private IntegerInlineProcessor intEndProcessor = new IntegerInlineProcessor();
 
@@ -14,10 +14,10 @@ public class FullResp2Decoder implements RedisMessageDecoder<RedisMessage>{
     private ArrayHeaderMessageDecoder arrayHeaderDecoder = new ArrayHeaderMessageDecoder(intEndProcessor);
 
 
-    RedisMessageDecoder<?extends RedisMessage> doDecoder;
+    RedisMessageDecoder<?extends RedisMessage1> doDecoder;
 
     @Override
-    public RedisMessage decode(ByteBuf in) {
+    public RedisMessage1 decode(ByteBuf in) {
         if (doDecoder == null) {
 
         }

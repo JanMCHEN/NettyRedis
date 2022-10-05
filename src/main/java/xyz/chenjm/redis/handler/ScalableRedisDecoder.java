@@ -14,10 +14,10 @@ public class ScalableRedisDecoder extends ByteToMessageDecoder {
     }
 
 
-    RedisMessageDecoder<?extends RedisMessage> onDecoder;
-    List<RedisMessageDecoder<? extends RedisMessage>> candidateDecoders;
+    RedisMessageDecoder<?extends RedisMessage1> onDecoder;
+    List<RedisMessageDecoder<? extends RedisMessage1>> candidateDecoders;
 
-    List<RedisMessage> messageList;
+    List<RedisMessage1> messageList;
 
     private DecodeState state;
 
@@ -33,25 +33,25 @@ public class ScalableRedisDecoder extends ByteToMessageDecoder {
 
     }
 
-    protected RedisMessageDecoder<?extends RedisMessage> getDecoder(ByteBuf in) {
+    protected RedisMessageDecoder<?extends RedisMessage1> getDecoder(ByteBuf in) {
         if (onDecoder == null) {
 
         }
         return onDecoder;
     }
 
-    static final class CommandArrayDecoder implements RedisMessageDecoder<RedisMessage> {
+    static final class CommandArrayDecoder implements RedisMessageDecoder<RedisMessage1> {
         FullBulkStringMessageDecoder stringDecoder;
-        RedisMessageDecoder<? extends RedisMessage> curr;
+        RedisMessageDecoder<? extends RedisMessage1> curr;
 
         boolean inline = true;
 
-        RedisMessage result;
+        RedisMessage1 result;
 
         @Override
-        public RedisMessage decode(ByteBuf in) {
+        public RedisMessage1 decode(ByteBuf in) {
             if (curr == null) {
-                if (in.getByte(in.readerIndex()) == RedisMessage.ARRAY_TYPE) {
+                if (in.getByte(in.readerIndex()) == RedisMessage1.ARRAY_TYPE) {
                     curr = new ArrayHeaderMessageDecoder();
                 } else if (inline) {
                     curr = new InlineCommandMessageDecoder();
@@ -59,11 +59,11 @@ public class ScalableRedisDecoder extends ByteToMessageDecoder {
                     throw new ProtocolException();
                 }
             }
-            RedisMessage decode = curr.decode(in);
+            RedisMessage1 decode = curr.decode(in);
             if (decode == null) {
                 return null;
             }
-            if (decode instanceof RedisMessage.ArrayHeaderMessage) {
+            if (decode instanceof RedisMessage1.ArrayHeaderMessage) {
 
             }
             if (curr instanceof InlineCommandMessageDecoder) {
@@ -79,7 +79,7 @@ public class ScalableRedisDecoder extends ByteToMessageDecoder {
 
         @Override
         public boolean support(ByteBuf in) {
-            return in.getByte(in.readerIndex())==RedisMessage.ARRAY_TYPE;
+            return in.getByte(in.readerIndex())== RedisMessage1.ARRAY_TYPE;
         }
     }
 }

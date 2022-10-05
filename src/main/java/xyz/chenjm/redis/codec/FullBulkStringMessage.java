@@ -34,7 +34,7 @@ public class FullBulkStringMessage extends AbstractRedisMessage{
         int off = buf.readerIndex();
         byte b = buf.getByte(off);
         if (b == STRING_TYPE) {
-            RedisMessage.checkInteger(buf, off+1, length);
+            RedisMessage1.checkInteger(buf, off+1, length);
         }else {
             throw new IllegalArgumentException("should be '$', but get "+(char)b);
         }

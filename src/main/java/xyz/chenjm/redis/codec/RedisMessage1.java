@@ -5,7 +5,7 @@ import io.netty.util.ReferenceCounted;
 
 import java.nio.charset.StandardCharsets;
 
-public interface RedisMessage extends ReferenceCounted {
+public interface RedisMessage1 extends ReferenceCounted {
     short CR_LF = ('\r' << 8 & 0xff) | '\n';
     byte SIMPLE_TYPE = '+';
     byte STRING_TYPE = '$';

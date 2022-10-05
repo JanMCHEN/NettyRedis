@@ -3,14 +3,14 @@ package xyz.chenjm.redis.codec;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ByteProcessor;
 
-public interface RedisMessageDecoder<T extends RedisMessage> extends ByteBufDecoder<T>{
+public interface RedisMessageDecoder<T extends RedisMessage1> extends ByteBufDecoder<T>{
     T decode(ByteBuf in);
 
     void reset();
 
     boolean support(ByteBuf in);
 
-    abstract class InlineMessageDecoder<T extends RedisMessage.InlineMessage> implements RedisMessageDecoder<T> {
+    abstract class InlineMessageDecoder<T extends RedisMessage1.InlineMessage> implements RedisMessageDecoder<T> {
         int offset = -1;
         InlineProcessor inlineProcessor;
 
@@ -42,7 +42,7 @@ public interface RedisMessageDecoder<T extends RedisMessage> extends ByteBufDeco
         }
     }
 
-    class SimpleMessageDecoder extends InlineMessageDecoder<RedisMessage.SimpleMessage> {
+    class SimpleMessageDecoder extends InlineMessageDecoder<RedisMessage1.SimpleMessage> {
         public SimpleMessageDecoder(InlineProcessor p) {
             inlineProcessor = p;
         }
@@ -50,17 +50,17 @@ public interface RedisMessageDecoder<T extends RedisMessage> extends ByteBufDeco
             inlineProcessor = new InlineProcessor();
         }
         @Override
-        protected RedisMessage.SimpleMessage newMessage(ByteBuf buf) {
-            return new RedisMessage.SimpleMessage(buf, true);
+        protected RedisMessage1.SimpleMessage newMessage(ByteBuf buf) {
+            return new RedisMessage1.SimpleMessage(buf, true);
         }
 
         @Override
         public boolean support(ByteBuf in) {
-            return in.getByte(in.readerIndex()) == RedisMessage.SIMPLE_TYPE;
+            return in.getByte(in.readerIndex()) == RedisMessage1.SIMPLE_TYPE;
         }
     }
 
-    class InlineCommandMessageDecoder extends InlineMessageDecoder<RedisMessage.InlineCommandMessage> {
+    class InlineCommandMessageDecoder extends InlineMessageDecoder<RedisMessage1.InlineCommandMessage> {
         public InlineCommandMessageDecoder(InlineProcessor p) {
             inlineProcessor = p;
         }
@@ -73,12 +73,12 @@ public interface RedisMessageDecoder<T extends RedisMessage> extends ByteBufDeco
         }
 
         @Override
-        protected RedisMessage.InlineCommandMessage newMessage(ByteBuf buf) {
-            return new RedisMessage.InlineCommandMessage(buf, true);
+        protected RedisMessage1.InlineCommandMessage newMessage(ByteBuf buf) {
+            return new RedisMessage1.InlineCommandMessage(buf, true);
         }
     }
 
-    class ArrayHeaderMessageDecoder extends InlineMessageDecoder<RedisMessage.ArrayHeaderMessage> {
+    class ArrayHeaderMessageDecoder extends InlineMessageDecoder<RedisMessage1.ArrayHeaderMessage> {
         public ArrayHeaderMessageDecoder() {
             inlineProcessor = new IntegerInlineProcessor();
         }
@@ -88,13 +88,13 @@ public interface RedisMessageDecoder<T extends RedisMessage> extends ByteBufDeco
         }
 
         @Override
-        protected RedisMessage.ArrayHeaderMessage newMessage(ByteBuf buf) {
-            return new RedisMessage.ArrayHeaderMessage(buf, true);
+        protected RedisMessage1.ArrayHeaderMessage newMessage(ByteBuf buf) {
+            return new RedisMessage1.ArrayHeaderMessage(buf, true);
         }
 
         @Override
         public boolean support(ByteBuf in) {
-            return in.getByte(in.readerIndex()) == RedisMessage.SIMPLE_TYPE;
+            return in.getByte(in.readerIndex()) == RedisMessage1.SIMPLE_TYPE;
         }
     }
 

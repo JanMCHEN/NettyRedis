@@ -11,7 +11,7 @@ public class FullBulkStringMessageDecoder implements RedisMessageDecoder<FullBul
     public FullBulkStringMessage decode(ByteBuf in) {
         if (offset == -1) {
             offset = in.readerIndex();
-            if (in.getByte(offset) != RedisMessage.STRING_TYPE) {
+            if (in.getByte(offset) != RedisMessage1.STRING_TYPE) {
                 throw new RuntimeException();
             }
             offset++;
@@ -55,6 +55,6 @@ public class FullBulkStringMessageDecoder implements RedisMessageDecoder<FullBul
 
     @Override
     public boolean support(ByteBuf in) {
-        return in.getByte(in.readerIndex()) == RedisMessage.INT_TYPE;
+        return in.getByte(in.readerIndex()) == RedisMessage1.INT_TYPE;
     }
 }

@@ -3,7 +3,7 @@ package xyz.chenjm.redis.codec;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCounted;
 
-abstract public class AbstractRedisMessage implements RedisMessage{
+abstract public class AbstractRedisMessage implements RedisMessage1 {
     protected ByteBuf buf;
     @Override
     public ByteBuf getBuf() {
