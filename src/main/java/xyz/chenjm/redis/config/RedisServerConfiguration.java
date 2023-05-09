@@ -94,7 +94,7 @@ public class RedisServerConfiguration implements RedisConfig{
 
     private String[] decodeArray(InputStream in) throws IOException {
         int flag = in.read();
-        if (flag==-1)
+        if (flag==-1 || flag=='\n'|| flag=='\r')
             return new String[0];
 
         if (flag != '*')

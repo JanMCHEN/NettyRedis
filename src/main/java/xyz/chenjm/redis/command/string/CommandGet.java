@@ -5,7 +5,7 @@ import xyz.chenjm.redis.command.CommandRunner;
 import xyz.chenjm.redis.core.RedisClient;
 import xyz.chenjm.redis.core.RedisDB;
 
-@Command("get")
+@Command(value = "get", args = 1)
 public class CommandGet implements CommandRunner, StringAdapter {
     @Override
     public Object invoke(RedisClient client, String... args) {

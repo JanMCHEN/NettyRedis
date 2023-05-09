@@ -32,14 +32,14 @@ public class CommandTask implements Callable<Object>, Event {
     public Object call(){
         try{
             res = cmd.invoke(client, args);
+            if (publisher != null) {
+                publisher.onEvent(this);
+            }
         }catch (RedisException e) {
             res = new ErrorRedisMessage(e.getMessage());
         }catch (Exception ex) {
             log.error("command '{}'execute wrong", args[0], ex);
             res = RedisMessageFactory.ERR;
-        }
-        if (publisher != null) {
-            publisher.onEvent(this);
         }
         if (!client.isMulti()) {
             client.writeAndFlush(res);
